@@ -189,7 +189,8 @@ body {
 /* ══════════════════════════════════════
    HOME VIEW
 ══════════════════════════════════════ */
-#view-home { flex-direction: column; }
+#view-home { flex-direction: column;position: relative; /* thêm dòng này */
+  padding-bottom: 0;  }
 
 /* Search HUD bar */
 .search-hud {
@@ -232,9 +233,22 @@ body {
 /* ── GAME SHELF (WiiU mosaic grid) ── */
 .game-shelf {
   flex: 1; overflow-y: auto; overflow-x: hidden;
-  padding: 0 28px 16px;
+  padding: 0 28px 80px; /* padding-bottom = hud height */
   scrollbar-width: thin;
   scrollbar-color: rgba(0,0,0,0.15) transparent;
+  /* fade mờ ở cuối */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    black 0%,
+    black calc(100% - 90px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    black 0%,
+    black calc(100% - 90px),
+    transparent 100%
+  );
 }
 .game-shelf::-webkit-scrollbar { width: 5px; }
 .game-shelf::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
@@ -255,6 +269,11 @@ body {
   
   background: var(--panel2);
 }
+.game-tile {
+  transition: transform 0.35s cubic-bezier(0.34,1.2,0.64,1),
+              box-shadow 0.35s ease,  /* đã có rồi, giữ nguyên */
+              z-index 0s;
+}
 @keyframes tile-in {
   from { opacity: 0; transform: scale(0.8) translateY(12px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
@@ -269,7 +288,7 @@ body {
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  opacity: 0;
+  opacity: 1;
   transition: opacity 0.2s;
   z-index: 3;
 }
@@ -442,6 +461,7 @@ body {
   animation: slide-in-right 0.35s var(--ease-smooth) both;
   scrollbar-width: thin;
   scrollbar-color: rgba(0,0,0,0.1) transparent;
+  padding-bottom: 80px;
 }
 @keyframes slide-in-right {
   from { opacity: 0; transform: translateX(24px); }
@@ -556,12 +576,15 @@ body {
   position: relative; z-index: 10; flex-shrink: 0;
   height: var(--hud-h); padding: 0 24px;
   display: flex; align-items: center;
+  margin-top: calc(-1 * var(--hud-h)); /* ← kéo lên đè lên shelf */
 }
 .hud-bottom-inner {
-  width: 100%; background: var(--panel2); border-radius: 18px;
+  width: 100%; border-radius: 18px;
   padding: 0 24px; height: 44px;
   display: flex; align-items: center; justify-content: space-between;
   box-shadow: 0 2px 14px rgba(0,0,0,0.1);
+  backdrop-filter: blur(14px);
+  background: rgba(255,255,255,0.80); /* hơi trong để thấy card phía sau */
 }
 .hud-btns-left, .hud-btns-right {
   display: flex; gap: 20px; align-items: center;
@@ -1270,3 +1293,50 @@ body {
   .shelf-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
   .hud-title-pill { max-width: 140px; font-size: 0.72rem; }
 }
+
+/* ══ MENU OVERLAY CARDS ══ */
+.menu-game-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px; margin-top: 10px;
+}
+.menu-game-card {
+  background: var(--panel2); border-radius: 14px; overflow: hidden;
+  cursor: pointer; position: relative;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  border: 2px solid transparent;
+  transition: all 0.2s var(--ease-bounce);
+}
+.menu-game-card:hover {
+  transform: translateY(-3px) scale(1.04);
+  border-color: var(--blue);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.14);
+}
+.menu-game-img { width: 100%; aspect-ratio: 1/1; overflow: hidden; }
+.menu-game-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+.menu-game-card:hover .menu-game-img img { transform: scale(1.07); }
+.menu-game-name {
+  padding: 5px 7px 1px; font-size: 0.7rem; font-weight: 800;
+  color: var(--tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.menu-game-rating { padding: 0 7px 7px; font-size: 0.66rem; font-weight: 700; color: #c07000; }
+.menu-game-rating i { font-size: 0.6rem; }
+.menu-fav-del {
+  position: absolute; top: 5px; right: 5px;
+  background: rgba(228,0,27,0.85); border: none; border-radius: 8px;
+  width: 24px; height: 24px; display: none; align-items: center; justify-content: center;
+  cursor: pointer; color: #fff; font-size: 0.75rem; z-index: 10;
+}
+.menu-game-card:hover .menu-fav-del { display: flex; }
+.menu-fav-badge {
+  position: absolute; top: 5px; right: 5px;
+  background: rgba(228,0,27,0.85); border-radius: 8px;
+  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 0.7rem;
+}
+.menu-empty {
+  padding: 20px; text-align: center; color: var(--tx-light);
+  font-size: 0.85rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+

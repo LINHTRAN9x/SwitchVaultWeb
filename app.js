@@ -379,7 +379,7 @@ function appendTiles(newGames, startIdx) {
     borderEl.style.cssText = `position:absolute;inset:0;border-radius:18px;pointer-events:none;z-index:3;
       padding:3px;background:${gradVal};
       -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-      -webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity 0.2s;`;
+      -webkit-mask-composite:xor;mask-composite:exclude;opacity:1;transition:opacity 0.2s;`;
     tile.appendChild(borderEl);
     const img = tile.querySelector(".tile-img");
     imgObserver.observe(img);
@@ -592,8 +592,9 @@ function showHome(restoreScroll = false) {
     <span class="hud-btn" id="btn-filter"><kbd>Y</kbd> ${t("filterBtn")}</span>
     <span class="hud-btn" id="btn-sort"><kbd>−</kbd> ${t("sortBtn")}</span>`;
   $("hud-btns-right").innerHTML = `
-    <span class="hud-btn"><kbd>A</kbd> ${t("selectBtn")}</span>
-    <span class="hud-btn"><kbd>+</kbd> ${t("menuBtn")}</span>`;
+  <span class="hud-btn"><kbd>A</kbd> ${t("selectBtn")}</span>
+  <span class="hud-btn" id="btn-menu"><kbd>+</kbd> ${t("menuBtn")}</span>`;
+document.getElementById("btn-menu")?.addEventListener("click", openMenuOverlay);
   $("btn-filter")?.addEventListener("click", openFilter);
   $("btn-sort")?.addEventListener("click", openFilter);
 
@@ -694,7 +695,7 @@ function renderShelf() {
     borderEl.style.cssText = `position:absolute;inset:0;border-radius:18px;pointer-events:none;z-index:3;
       padding:3px;background:${gradVal};
       -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-      -webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity 0.2s;`;
+      -webkit-mask-composite:xor;mask-composite:exclude;opacity:1;transition:opacity 0.2s;`;
     tile.appendChild(borderEl);
     const img = tile.querySelector(".tile-img");
     imgObserver.observe(img);
@@ -727,7 +728,7 @@ function initRepelEffect() {
     tile.addEventListener("mouseenter", () => applyRepel(tiles, i));
   });
   grid.addEventListener("mouseleave", () => {
-    tiles.forEach(t => { t.style.transform = ""; t.style.zIndex = ""; t.style.filter = ""; });
+    tiles.forEach(t => { t.style.transform = ""; t.style.zIndex = ""; t.style.filter = "";t.style.boxShadow = ""; });
   });
 }
 
@@ -736,7 +737,7 @@ function applyRepel(tiles, hovIdx) {
   const hov = rects[hovIdx];
   const hcx = hov.left + hov.width / 2, hcy = hov.top + hov.height / 2;
   tiles.forEach((tile, i) => {
-    if (i === hovIdx) { tile.style.transform = "scale(1.1)"; tile.style.zIndex = "30"; return; }
+    if (i === hovIdx) { tile.style.transform = "scale(1.1)"; tile.style.zIndex = "30";tile.style.boxShadow = "0 20px 48px rgba(0,0,0,0.28)"; return; }
     const r = rects[i];
     const dx = (r.left + r.width/2) - hcx, dy = (r.top + r.height/2) - hcy;
     const dist = Math.sqrt(dx*dx + dy*dy);
@@ -822,6 +823,7 @@ function showDetailWithGame(game) {
     });
   S.scrollY    = $("game-shelf").scrollTop;
   S.gameDetail = game;
+  addRecent(game);
   S.currentId  = game.id;
   S.detailIdx  = S.games.findIndex(g => g.id === game.id);
   $("view-home").classList.add("hidden");    $("view-home").classList.remove("active");
@@ -840,12 +842,7 @@ function showDetailWithGame(game) {
 }
 
 async function showDetail(id, slug) {
-    updateSEO({
-    title:       game.name,
-    description: game.description || "",
-    image:       game.img,
-    url:         window.location.origin + `/#/game/${game.slug || game.id}`
-    });
+    
   S.scrollY = $("game-shelf").scrollTop;
   $("view-home").classList.add("hidden");      $("view-home").classList.remove("active");
   $("view-detail").classList.remove("hidden"); $("view-detail").classList.add("active");
@@ -860,6 +857,7 @@ async function showDetail(id, slug) {
     const game = await fetchGameDetail(id || slug);
     S.gameDetail = game; S.currentId = game.id;
     S.detailIdx  = S.games.findIndex(g => g.id === game.id);
+    addRecent(game);
     $("hud-title").textContent = game.name;
     $("hud-btns-right").innerHTML = `
       <span class="hud-btn detail-website-btn"><kbd>A</kbd> ${t("websiteBtn")}</span>
@@ -979,13 +977,13 @@ function renderDetailContent(game) {
     <i class="ph-fill ph-globe"></i> ${t("homepage")}</a>` : ""}
   <button class="detail-btn detail-btn-secondary" id="btn-open-showcase">
     <i class="ph-fill ph-images"></i> ${t("viewPhotos")}</button>
+  <button class="detail-btn detail-btn-secondary" id="btn-fav" style="color:${isFavorite(game.id)?'#e4001b':'var(--tx-mid)'}">
+    <i class="ph-fill ph-heart"></i>
+    ${isFavorite(game.id) ? (currentLang==="vi"?"Đã thích":"Favorited") : (currentLang==="vi"?"Yêu thích":"Favorite")}
+  </button>
   ${isAdmin && game.isCustom ? `
-    <button class="detail-btn detail-btn-secondary" id="btn-edit-game" style="color:var(--purple)">
-      <i class="ph-fill ph-pencil-simple"></i> ${currentLang==="vi"?"Sửa game":"Edit game"}
-    </button>
-    <button class="detail-btn detail-btn-secondary" id="btn-del-game" style="color:var(--red)">
-      <i class="ph-fill ph-trash"></i> ${currentLang==="vi"?"Xóa":"Delete"}
-    </button>` : ""}
+    ...
+  ` : ""}
 </div>`;
 
   renderDownloadLinks(game);
@@ -1024,6 +1022,15 @@ function renderDetailContent(game) {
   });
 
   $("btn-open-showcase")?.addEventListener("click", () => { playSound("open"); openShowcase(game); });
+  $("btn-fav")?.addEventListener("click", () => {
+    const added = toggleFavorite(game);
+    playSound(added ? "select" : "back");
+    const btn = $("btn-fav");
+    btn.style.color = added ? "#e4001b" : "var(--tx-mid)";
+    btn.innerHTML = `<i class="ph-fill ph-heart"></i> ${added
+      ? (currentLang==="vi" ? "Đã thích" : "Favorited")
+      : (currentLang==="vi" ? "Yêu thích" : "Favorite")}`;
+  });
   $("btn-open-showcase")?.addEventListener("mouseenter", () => playSound("tick"));
   $("btn-edit-game")?.addEventListener("click", async () => {
   const customs = await getCustomGames();
@@ -1090,6 +1097,7 @@ function navigateDetail(dir) {
   const minSpinTime = new Promise(res => setTimeout(res, 600));
   Promise.all([fetchGameDetail(g.id || g.slug), minSpinTime]).then(([game]) => {
     S.gameDetail = game; S.currentId = game.id;
+    addRecent(game);
     if (adjEl) { adjEl.style.animation = ""; adjEl.style.opacity = ""; adjEl.style.borderColor = ""; adjEl.style.pointerEvents = ""; }
     $("hud-title").textContent = game.name;
     $("detail-left").classList.add("no-default-anim");
@@ -1898,6 +1906,116 @@ function updateSEO({ title, description, image, url }) {
   setMeta("tw-desc",    desc);
   setMeta("tw-image",   img);
   setMeta("meta-desc",  desc);
+}
+
+/* ══ FAVORITES & RECENT ══ */
+function getFavorites() { return JSON.parse(localStorage.getItem("sv_favorites") || "[]"); }
+function saveFavorites(list) { localStorage.setItem("sv_favorites", JSON.stringify(list)); }
+function toggleFavorite(game) {
+  let favs = getFavorites();
+  const idx = favs.findIndex(f => f.id == game.id);
+  if (idx === -1) favs.unshift({ id: game.id, slug: game.slug, name: game.name, img: game.img, rating: game.rating });
+  else favs.splice(idx, 1);
+  saveFavorites(favs);
+  return idx === -1;
+}
+function isFavorite(gameId) { return getFavorites().some(f => f.id == gameId); }
+
+function getRecent() { return JSON.parse(localStorage.getItem("sv_recent") || "[]"); }
+function addRecent(game) {
+  let recent = getRecent().filter(r => r.id != game.id);
+  recent.unshift({ id: game.id, slug: game.slug, name: game.name, img: game.img, rating: game.rating });
+  if (recent.length > 20) recent = recent.slice(0, 20);
+  localStorage.setItem("sv_recent", JSON.stringify(recent));
+}
+
+function openMenuOverlay() {
+  playSound("open");
+  const favs   = getFavorites();
+  const recent = getRecent();
+
+  const existing = document.getElementById("menu-overlay");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "menu-overlay";
+  overlay.className = "overlay-panel";
+  overlay.innerHTML = `
+    <div class="overlay-panel-inner" style="max-width:900px;">
+      <div class="overlay-title"><i class="ph-fill ph-squares-four"></i> Menu</div>
+
+      <!-- YÊU THÍCH -->
+      <div class="overlay-section">
+        <div class="overlay-section-label" style="display:flex;align-items:center;justify-content:space-between;">
+          <span><i class="ph-fill ph-heart" style="color:#e4001b"></i> ${currentLang==="vi"?"Yêu thích":"Favorites"} (${favs.length})</span>
+          ${favs.length ? `<button id="clear-favs" style="background:none;border:none;font-family:var(--font);font-size:0.72rem;font-weight:700;color:var(--tx-light);cursor:pointer;">${currentLang==="vi"?"Xóa tất cả":"Clear all"}</button>` : ""}
+        </div>
+        ${favs.length ? `
+          <div class="menu-game-grid" id="favs-grid">
+            ${favs.map(g => `
+              <div class="menu-game-card" data-id="${g.id}" data-slug="${g.slug}">
+                <div class="menu-game-img"><img src="${g.img}" onerror="this.src='https://placehold.co/200x200/dff1fa/009AC7?text=Game'" /></div>
+                <div class="menu-game-name">${g.name}</div>
+                <div class="menu-game-rating"><i class="ph-fill ph-star"></i> ${(g.rating||0).toFixed(1)}</div>
+                <button class="menu-fav-del" data-id="${g.id}" title="Bỏ yêu thích"><i class="ph-fill ph-heart-break"></i></button>
+              </div>`).join("")}
+          </div>` 
+        : `<div class="menu-empty"><i class="ph-fill ph-heart"></i> ${currentLang==="vi"?"Chưa có game yêu thích":"No favorites yet"}</div>`}
+      </div>
+
+      <!-- GẦN ĐÂY -->
+      <div class="overlay-section">
+        <div class="overlay-section-label" style="display:flex;align-items:center;justify-content:space-between;">
+          <span><i class="ph-fill ph-clock-clockwise" style="color:var(--blue)"></i> ${currentLang==="vi"?"Xem gần đây":"Recently viewed"} (${recent.length})</span>
+          ${recent.length ? `<button id="clear-recent" style="background:none;border:none;font-family:var(--font);font-size:0.72rem;font-weight:700;color:var(--tx-light);cursor:pointer;">${currentLang==="vi"?"Xóa tất cả":"Clear all"}</button>` : ""}
+        </div>
+        ${recent.length ? `
+          <div class="menu-game-grid" id="recent-grid">
+            ${recent.map(g => `
+              <div class="menu-game-card" data-id="${g.id}" data-slug="${g.slug}">
+                <div class="menu-game-img"><img src="${g.img}" onerror="this.src='https://placehold.co/200x200/dff1fa/009AC7?text=Game'" /></div>
+                <div class="menu-game-name">${g.name}</div>
+                <div class="menu-game-rating"><i class="ph-fill ph-star"></i> ${(g.rating||0).toFixed(1)}</div>
+                ${isFavorite(g.id) ? `<div class="menu-fav-badge"><i class="ph-fill ph-heart"></i></div>` : ""}
+              </div>`).join("")}
+          </div>`
+        : `<div class="menu-empty"><i class="ph-fill ph-clock"></i> ${currentLang==="vi"?"Chưa xem game nào":"No recently viewed games"}</div>`}
+      </div>
+
+      <button class="overlay-close" id="menu-close"><i class="ph-bold ph-check"></i> ${t("doneBtn")}</button>
+    </div>`;
+
+  document.getElementById("console-ui").appendChild(overlay);
+
+  // Events
+  overlay.querySelector("#menu-close")?.addEventListener("click", () => { playSound("back"); overlay.remove(); });
+  overlay.addEventListener("click", e => { if (e.target === overlay) { playSound("back"); overlay.remove(); } });
+
+  overlay.querySelectorAll(".menu-game-card").forEach(card => {
+    card.addEventListener("mouseenter", () => playSound("tick"));
+    card.addEventListener("click", e => {
+      if (e.target.closest(".menu-fav-del")) return;
+      overlay.remove();
+      showDetail(parseInt(card.dataset.id) || null, card.dataset.slug);
+    });
+  });
+
+  overlay.querySelectorAll(".menu-fav-del").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      playSound("back");
+      let favs = getFavorites().filter(f => f.id != btn.dataset.id);
+      saveFavorites(favs);
+      openMenuOverlay(); // re-render
+    });
+  });
+
+  overlay.querySelector("#clear-favs")?.addEventListener("click", () => {
+    saveFavorites([]); playSound("back"); openMenuOverlay();
+  });
+  overlay.querySelector("#clear-recent")?.addEventListener("click", () => {
+    localStorage.removeItem("sv_recent"); playSound("back"); openMenuOverlay();
+  });
 }
 
 window.openShowcase = openShowcase;
