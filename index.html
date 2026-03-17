@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Switch Vault</title>
+  <meta name="description" content="Switch Vault – Kho tàng game Nintendo Switch" />
+  <!-- SEO & Open Graph -->
+<meta name="robots" content="index, follow" />
+<meta property="og:site_name" content="Switch Vault" />
+<meta property="og:type" content="website" />
+<meta property="og:title" id="og-title" content="Switch Vault – Kho tàng game Nintendo Switch" />
+<meta property="og:description" id="og-desc" content="Khám phá hàng nghìn game Nintendo Switch với đánh giá, trailer và link tải." />
+<meta property="og:image" id="og-image" content="https://placehold.co/1200x630/dff1fa/009AC7?text=Switch+Vault" />
+<meta property="og:url" id="og-url" content="" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" id="tw-title" content="Switch Vault" />
+<meta name="twitter:description" id="tw-desc" content="Khám phá hàng nghìn game Nintendo Switch." />
+<meta name="twitter:image" id="tw-image" content="" />
+<meta name="description" id="meta-desc" content="Khám phá hàng nghìn game Nintendo Switch với đánh giá, trailer và link tải." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ══ LOADING ══ -->
+  <div id="loading" class="loading-screen">
+    <div class="loading-logo">
+      <div class="loading-icon"><i class="ph-fill ph-lightning"></i></div>
+      <div class="loading-wordmark">Switch<span>Vault</span></div>
+    </div>
+    <div class="loading-dots">
+      <span></span><span></span><span></span><span></span>
+    </div>
+  </div>
+
+  <!-- ══ CONSOLE UI ══ -->
+  <div id="console-ui" class="hidden">
+
+    <div id="bg-layer" aria-hidden="true"></div>
+
+    <!-- ── TOP HUD ── -->
+    <div class="hud-top">
+      <div class="hud-top-left">
+        <button class="hud-back-btn hidden" id="hud-back">
+          <i class="ph-bold ph-caret-left"></i>
+          Quay lại
+        </button>
+        <button class="hud-login-btn" id="hud-login">
+          <i class="ph-fill ph-user"></i>
+        </button>
+      </div>
+      <div class="hud-top-center">
+        <div class="hud-title-pill" id="hud-title">
+          <i class="ph-fill ph-lightning"></i> Switch Vault
+        </div>
+      </div>
+      <div class="hud-top-right">
+        <button class="hud-lang-btn" id="hud-lang" title="Language">
+        <img id="lang-flag" src="https://flagcdn.com/w40/vn.png" style="width:24px;height:16px;object-fit:cover;border-radius:3px;" />
+        </button>
+        <button class="hud-settings-btn" id="hud-settings" title="Cài đặt">
+          <i class="ph-fill ph-gear"></i>
+        </button>
+        <div class="hud-clock-pill">
+          <span id="hud-clock">--:--</span>
+          <span class="hud-sep">|</span>
+          <i class="ph-fill ph-battery-full"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── VIEWS ── -->
+    <div id="view-home" class="view active">
+      <div class="search-hud">
+        <div class="search-hud-inner">
+          <i class="ph-bold ph-magnifying-glass"></i>
+          <input id="search-input" type="search" placeholder="Tìm game..." autocomplete="off" />
+          <div class="genre-pills-hud" id="genre-pills"></div>
+        </div>
+      </div>
+      <div class="game-shelf" id="game-shelf"></div>
+    </div>
+
+    <div id="view-detail" class="view hidden">
+      <div class="detail-layout">
+        <div class="detail-left" id="detail-left"></div>
+        <div class="detail-right" id="detail-right"></div>
+      </div>
+    </div>
+
+    <!-- ── BOTTOM HUD ── -->
+    <div class="hud-bottom">
+      <div class="hud-bottom-inner">
+        <div class="hud-btns-left" id="hud-btns-left">
+          <span class="hud-btn"><kbd>Y</kbd> Bộ lọc</span>
+          <span class="hud-btn"><kbd>−</kbd> Sắp xếp</span>
+        </div>
+        <div class="hud-count-pill" id="hud-count">0 game</div>
+        <div class="hud-btns-right" id="hud-btns-right">
+          <span class="hud-btn"><kbd>A</kbd> Chọn</span>
+          <span class="hud-btn"><kbd>+</kbd> Menu</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FILTER OVERLAY ── -->
+    <div id="filter-overlay" class="overlay-panel hidden">
+      <div class="overlay-panel-inner">
+        <div class="overlay-title"><i class="ph-fill ph-game-controller"></i> Thể loại & Tags</div>
+        <div class="overlay-section">
+          <div class="overlay-section-label">THỂ LOẠI</div>
+          <div class="overlay-chips" id="overlay-genres"></div>
+        </div>
+        <div class="overlay-section">
+          <div class="overlay-section-label">TAGS</div>
+          <div class="overlay-chips" id="overlay-tags"></div>
+        </div>
+        <div class="overlay-section">
+          <div class="overlay-section-label">SẮP XẾP</div>
+          <div class="overlay-chips" id="overlay-sort"></div>
+        </div>
+        <button class="overlay-close" id="overlay-close"><i class="ph-bold ph-check"></i> Xong</button>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS OVERLAY ── -->
+    <div id="settings-overlay" class="overlay-panel hidden">
+      <div class="overlay-panel-inner">
+        <div class="overlay-title"><i class="ph-fill ph-gear"></i> Cài đặt</div>
+        <div class="overlay-section">
+          <div class="overlay-section-label">🎵 Nhạc nền</div>
+          <div class="settings-music-list" id="settings-music-list"></div>
+        </div>
+        <div class="overlay-section">
+          <div class="overlay-section-label">🔊 Âm lượng nhạc</div>
+          <div class="settings-volume-row">
+            <i class="ph-fill ph-speaker-low"></i>
+            <input type="range" id="music-volume" min="0" max="100" value="40" class="volume-slider" />
+            <i class="ph-fill ph-speaker-high"></i>
+            <span id="volume-label" class="volume-label">40%</span>
+          </div>
+        </div>
+        <div class="overlay-section">
+          <div class="overlay-section-label">🔔 Âm thanh UI</div>
+          <div class="settings-toggle-row">
+            <span>Hiệu ứng âm thanh</span>
+            <button class="settings-toggle" id="sfx-toggle">BẬT</button>
+          </div>
+        </div>
+        <button class="overlay-close" id="settings-close"><i class="ph-bold ph-check"></i> Xong</button>
+      </div>
+    </div>
+
+    <!-- ── SHOWCASE OVERLAY ── -->
+    <div id="showcase-overlay" class="showcase-overlay hidden">
+      <button class="sc-close" id="sc-close"><i class="ph-bold ph-x"></i></button>
+      <button class="sc-prev" id="sc-prev"><i class="ph-bold ph-caret-left"></i></button>
+      <img id="sc-img" src="" alt="Screenshot" />
+      <button class="sc-next" id="sc-next"><i class="ph-bold ph-caret-right"></i></button>
+      <div class="sc-counter" id="sc-counter">1 / 1</div>
+    </div>
+
+    <!-- ── LOGIN OVERLAY ── -->
+    <div id="login-overlay" class="login-overlay hidden">
+      <div class="login-box">
+        <div class="login-title">
+          <i class="ph-fill ph-shield-check" style="color:var(--blue)"></i>
+          Admin Login
+        </div>
+        <div class="login-field">
+          <label>Tên đăng nhập</label>
+          <input type="text" id="login-user" placeholder="admin" autocomplete="off" />
+        </div>
+        <div class="login-field">
+          <label>Mật khẩu</label>
+          <input type="password" id="login-pass" placeholder="••••••••" />
+        </div>
+        <div class="login-error" id="login-error">Sai tên đăng nhập hoặc mật khẩu</div>
+        <button class="login-submit" id="login-submit">Đăng nhập</button>
+        <button class="login-cancel" id="login-cancel">Hủy</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
