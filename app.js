@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   SWITCH VAULT — app.js  (WiiU Console UI + RAWG API)
+   NSwitch Vault — app.js  (WiiU Console UI + RAWG API)
 ═══════════════════════════════════════════════════════ */
 "use strict";
 
@@ -585,7 +585,7 @@ const ALL_TAGS = [
 
 /* ══ HOME VIEW ══ */
 function showHome(restoreScroll = false) {
-  $("hud-title").innerHTML = `<i class="ph-fill ph-lightning"></i> Switch Vault System`;
+  $("hud-title").innerHTML = `<i class="ph-fill ph-lightning"></i> NSwitch Vault System`;
   $("hud-back").classList.add("hidden");
   $("hud-login").classList.remove("hidden");
   $("hud-btns-left").innerHTML = `
@@ -1879,7 +1879,7 @@ function openAddGameModal(existing = null) {
 
 
 function updateSEO({ title, description, image, url }) {
-  document.title = title ? `${title} – Switch Vault` : "Switch Vault – Kho tàng game Nintendo Switch";
+  document.title = title ? `${title} – NSwitch Vault` : "NSwitch Vault – Kho tàng game Nintendo Switch";
 
   const setMeta = (id, val) => { const el = document.getElementById(id); if (el) el.setAttribute("content", val || ""); };
 
