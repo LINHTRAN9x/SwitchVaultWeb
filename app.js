@@ -230,6 +230,7 @@ const S = {
   page: 1, totalCount: 0, loading: false, hasMore: true, scrollY: 0,
   games: [],
   gameDetail: null,
+  filterViethoa: false,
 };
 
 const $   = id => document.getElementById(id);
@@ -321,6 +322,8 @@ async function fetchGames(append = false) {
   if (S.loading) return;
   if (append && !S.hasMore) return;
   S.loading = true;
+  const viethoaIds = S.filterViethoa ? await getViethoaList() : (window._viethoaCache || []);
+  window._viethoaCache = viethoaIds;
   if (!append) showShelfLoading();
   try {
     const isSwitch = (window._activePlatformId || SWITCH_ID) === SWITCH_ID;
@@ -447,8 +450,16 @@ async function fetchGames(append = false) {
       });
     }
     normalized = merged;
+    normalized.forEach(g => { g.isViethoa = viethoaIds.includes(String(g.id)); });
   } else {
     normalized = rawgGames;
+  }
+
+  // Lọc Việt hóa
+  if (S.filterViethoa) {
+    const viethoaList = await getViethoaList();
+    window._viethoaCache = viethoaList;
+    normalized = normalized.filter(g => viethoaList.includes(String(g.id)));
   }
 
     S.games      = append ? [...S.games, ...normalized] : normalized;
@@ -475,10 +486,11 @@ function appendTiles(newGames, startIdx) {
     tile.className = `game-tile ${sizeClass}`;
     tile.style.animationDelay = `${i * 35}ms`;
     tile.innerHTML = `
-      <img class="tile-img" data-src="${g.img}" src="" alt="${g.name}" />
-      <div class="tile-rating"><i class="ph-fill ph-star"></i> ${g.rating.toFixed(1)}</div>
-      ${g.metacritic ? `<div class="tile-mc ${mcCls}">${g.metacritic}</div>` : ""}
-      <div class="tile-overlay"><div class="tile-name">${g.name}</div></div>`;
+  <img class="tile-img" data-src="${g.img}" src="" alt="${g.name}" />
+  <div class="tile-rating"><i class="ph-fill ph-star"></i> ${g.rating.toFixed(1)}</div>
+  ${g.metacritic ? `<div class="tile-mc ${mcCls}">${g.metacritic}</div>` : ""}
+  ${g.isViethoa  ? `<div class="tile-vn">🇻🇳</div>` : ""}
+  <div class="tile-overlay"><div class="tile-name">${g.name}</div></div>`;
     const borderEl = document.createElement("div");
     borderEl.style.cssText = `position:absolute;inset:0;border-radius:18px;pointer-events:none;z-index:3;
       padding:3px;background:${gradVal};
@@ -1159,6 +1171,9 @@ const colors = {
     <i class="ph-fill ph-heart"></i>
     ${isFavorite(game.id) ? (currentLang==="vi"?"Đã thích":"Favorited") : (currentLang==="vi"?"Yêu thích":"Favorite")}
   </button>
+  ${isAdmin ? `<button class="detail-btn detail-btn-secondary" id="btn-viethoa">
+    <i class="ph-fill ph-flag"></i> Việt hóa...
+  </button>` : ""}
   ${isAdmin && game.isCustom ? `
     ...
   ` : ""}
@@ -1209,6 +1224,24 @@ const colors = {
       ? (currentLang==="vi" ? "Đã thích" : "Favorited")
       : (currentLang==="vi" ? "Yêu thích" : "Favorite")}`;
   });
+
+  // Init trạng thái nút Việt hóa
+isViethoa(game.id).then(vh => {
+  const btn = $("btn-viethoa");
+  if (!btn) return;
+  btn.innerHTML = `<i class="ph-fill ph-flag"></i> ${vh
+    ? (currentLang==="vi"?"Có Việt hóa":"Has VN patch")
+    : (currentLang==="vi"?"Đánh dấu Việt hóa":"Mark as VN patch")}`;
+  btn.style.color = vh ? "#52b840" : "var(--tx-mid)";
+  btn.addEventListener("click", async () => {
+    const added = await toggleViethoa(game.id);
+    playSound(added ? "select" : "back");
+    btn.innerHTML = `<i class="ph-fill ph-flag"></i> ${added
+      ? (currentLang==="vi"?"Có Việt hóa":"Has VN patch")
+      : (currentLang==="vi"?"Đánh dấu Việt hóa":"Mark as VN patch")}`;
+    btn.style.color = added ? "#52b840" : "var(--tx-mid)";
+  });
+});
   $("btn-open-showcase")?.addEventListener("mouseenter", () => playSound("tick"));
   $("btn-edit-game")?.addEventListener("click", async () => {
   const customs = await getCustomGames();
@@ -1323,14 +1356,38 @@ function openFilter() {
   $("overlay-sort").innerHTML = sortOpts.map(o=>`<button class="o-chip ${S.order===o.val?"sort-active":""}" data-sort="${o.val}">${o.label}</button>`).join("");
 
   // Update labels
-  const labels = document.querySelectorAll(".overlay-section-label");
-  if (labels[0]) labels[0].textContent = t("genreLabel");
-  if (labels[1]) labels[1].textContent = t("tagLabel");
-  if (labels[2]) labels[2].textContent = t("sortLabel");
+  const genreSection  = $("overlay-genres")?.closest(".overlay-section");
+const tagSection    = $("overlay-tags")?.closest(".overlay-section");
+const sortSection   = $("overlay-sort")?.closest(".overlay-section");
+if (genreSection) genreSection.querySelector(".overlay-section-label").textContent = t("genreLabel");
+if (tagSection)   tagSection.querySelector(".overlay-section-label").textContent   = t("tagLabel");
+if (sortSection)  sortSection.querySelector(".overlay-section-label").textContent  = t("sortLabel");
   const title = document.querySelector(".overlay-title");
   if (title) title.innerHTML = `<i class="ph-fill ph-game-controller"></i> ${t("filterTitle")}`;
   const closeBtn = $("overlay-close");
   if (closeBtn) closeBtn.innerHTML = `<i class="ph-bold ph-check"></i> ${t("doneBtn")}`;
+
+  // Render Việt hóa toggle
+// Render Việt hóa toggle — xóa cũ trước khi thêm mới
+document.getElementById("vh-filter-section")?.remove();
+const vhSection = document.createElement("div");
+vhSection.id = "vh-filter-section";
+vhSection.className = "overlay-section";
+vhSection.innerHTML = `
+  <div class="overlay-section-label">🇻🇳 VIỆT HÓA</div>
+  <div class="overlay-chips">
+    <button class="o-chip ${S.filterViethoa ? "active" : ""}" id="chip-viethoa">
+      🇻🇳 ${currentLang === "vi" ? "Chỉ hiện game Việt hóa" : "Vietnamese only"}
+    </button>
+  </div>`;
+const overlayInner = document.querySelector("#filter-overlay .overlay-panel-inner");
+overlayInner.insertBefore(vhSection, overlayInner.querySelector(".overlay-section"));
+
+document.getElementById("chip-viethoa")?.addEventListener("click", () => {
+  S.filterViethoa = !S.filterViethoa;
+  document.getElementById("chip-viethoa").classList.toggle("active", S.filterViethoa);
+  playSound("tick");
+});
 
   $("filter-overlay").classList.remove("hidden");
 
@@ -1566,6 +1623,33 @@ async function saveTrailers(gameId, trailers) {
     headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_KEY },
     body: JSON.stringify({ links: all })
   });
+}
+
+async function getViethoaList() {
+  const all = await fetchAllLinks();
+  return all["viethoa_games"] || [];
+}
+async function saveViethoaList(list) {
+  const all = await fetchAllLinks();
+  all["viethoa_games"] = list;
+  linksCache = all;
+  await fetch(JSONBIN_URL, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_KEY },
+    body: JSON.stringify({ links: all })
+  });
+}
+async function toggleViethoa(gameId) {
+  const list = await getViethoaList();
+  const id   = String(gameId);
+  const idx  = list.indexOf(id);
+  if (idx === -1) list.push(id); else list.splice(idx, 1);
+  await saveViethoaList(list);
+  return idx === -1;
+}
+async function isViethoa(gameId) {
+  const list = await getViethoaList();
+  return list.includes(String(gameId));
 }
 
 /* ══ DOWNLOAD LINKS ══ */
