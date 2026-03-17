@@ -1372,7 +1372,19 @@ function openFilter() {
     .stat-label i { font-size:0.8rem; vertical-align:middle; margin-right:2px; }
     .tile-rating i { font-size:0.62rem; vertical-align:middle; }
     .similar-rating i { font-size:0.62rem; vertical-align:middle; }
+    .dl-link-row.dragging { opacity: 0.4; background: rgba(58,180,216,0.08); }
+.dl-link-row.drag-over { border: 2px dashed var(--blue) !important; transform: scale(1.01); }
+.dl-drag-handle {
+  width: 28px; height: 28px; border-radius: 8px; border: none;
+  background: rgba(0,0,0,0.06); color: var(--tx-light);
+  display: flex; align-items: center; justify-content: center;
+  cursor: grab; font-size: 1rem; flex-shrink: 0;
+  transition: all 0.15s;
+}
+.dl-drag-handle:active { cursor: grabbing; background: var(--blue); color: #fff; }
+.dl-drag-handle:hover { background: rgba(58,180,216,0.15); color: var(--blue); }
   `;
+
   document.head.appendChild(style);
 })();
 
@@ -1565,10 +1577,11 @@ async function renderDownloadLinks(game) {
     <div class="section-label"><i class="ph-fill ph-download-simple"></i> ${t("downloadLabel")}</div>`;
 
   if (links.length) {
-    html += `<div class="dl-links-list" style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">`;
+    html += `<div class="dl-links-list" id="dl-links-list" style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">`;
     links.forEach((l, i) => {
       html += `
-        <div class="dl-link-row">
+        <div class="dl-link-row" data-idx="${i}">
+          ${isAdminView ? `<button class="dl-drag-handle" title="Kéo để sắp xếp"><i class="ph-fill ph-dots-six-vertical"></i></button>` : ""}
           <div class="dl-link-name">${l.name}</div>
           <div class="dl-link-urls">
             ${(l.urls || [{ label: t("viewPhotos"), url: l.url }]).map(u => `
@@ -1606,6 +1619,51 @@ async function renderDownloadLinks(game) {
   }
 
   bindLinkEvents(game);
+
+  // Drag-to-reorder (chỉ admin)
+  if (isAdminView) {
+    const listEl = document.getElementById("dl-links-list");
+    if (!listEl) return;
+    let dragSrc = null;
+
+    listEl.querySelectorAll(".dl-link-row").forEach(row => {
+      row.setAttribute("draggable", "true");
+
+      row.addEventListener("dragstart", e => {
+        dragSrc = row;
+        row.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+      });
+      row.addEventListener("dragend", () => {
+        row.classList.remove("dragging");
+        listEl.querySelectorAll(".dl-link-row").forEach(r => r.classList.remove("drag-over"));
+      });
+      row.addEventListener("dragover", e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        listEl.querySelectorAll(".dl-link-row").forEach(r => r.classList.remove("drag-over"));
+        if (row !== dragSrc) row.classList.add("drag-over");
+      });
+      row.addEventListener("drop", async e => {
+        e.preventDefault();
+        if (!dragSrc || dragSrc === row) return;
+        row.classList.remove("drag-over");
+
+        // Lấy vị trí cũ và mới
+        const rows = [...listEl.querySelectorAll(".dl-link-row")];
+        const fromIdx = parseInt(dragSrc.dataset.idx);
+        const toIdx   = parseInt(row.dataset.idx);
+
+        // Reorder links array
+        const currentLinks = await getLinks(game.id);
+        const [moved] = currentLinks.splice(fromIdx, 1);
+        currentLinks.splice(toIdx, 0, moved);
+        await saveLinks(game.id, currentLinks);
+        playSound("select");
+        await refreshDlSection(game);
+      });
+    });
+  }
 }
 
 function bindLinkEvents(game) {
