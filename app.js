@@ -712,8 +712,11 @@ $("hud-title").innerHTML = `<i class="ph-fill ph-lightning"></i> ${activePlat ? 
   <span class="hud-btn"><kbd>A</kbd> ${t("selectBtn")}</span>
   <span class="hud-btn" id="btn-menu"><kbd>+</kbd> ${t("menuBtn")}</span>`;
 document.getElementById("btn-menu")?.addEventListener("click", openMenuOverlay);
+document.getElementById("btn-menu")?.addEventListener("mouseenter", () => playSound("tick"));
   $("btn-filter")?.addEventListener("click", openFilter);
   $("btn-sort")?.addEventListener("click", openFilter);
+  $("btn-filter")?.addEventListener("mouseenter", () => playSound("tick"));
+  $("btn-sort")?.addEventListener("mouseenter",   () => playSound("tick"));
 
   $("view-detail").classList.add("hidden");  $("view-detail").classList.remove("active");
   $("view-home").classList.remove("hidden"); $("view-home").classList.add("active");
@@ -1382,7 +1385,7 @@ vhSection.innerHTML = `
   </div>`;
 const overlayInner = document.querySelector("#filter-overlay .overlay-panel-inner");
 overlayInner.insertBefore(vhSection, overlayInner.querySelector(".overlay-section"));
-
+document.getElementById("chip-viethoa")?.addEventListener("mouseenter", () => playSound("tick"));
 document.getElementById("chip-viethoa")?.addEventListener("click", () => {
   S.filterViethoa = !S.filterViethoa;
   document.getElementById("chip-viethoa").classList.toggle("active", S.filterViethoa);
@@ -1391,18 +1394,27 @@ document.getElementById("chip-viethoa")?.addEventListener("click", () => {
 
   $("filter-overlay").classList.remove("hidden");
 
-  $$("[data-genre]").forEach(btn => btn.addEventListener("click", () => {
-    S.genre = btn.dataset.genre;
-    $$("[data-genre]").forEach(b => b.classList.toggle("active", b.dataset.genre===S.genre));
-  }));
-  $$("[data-tag]").forEach(btn => btn.addEventListener("click", () => {
-    S.tag = S.tag===btn.dataset.tag ? "" : btn.dataset.tag;
-    $$("[data-tag]").forEach(b => b.classList.toggle("active", b.dataset.tag===S.tag));
-  }));
-  $$("[data-sort]").forEach(btn => btn.addEventListener("click", () => {
-    S.order = btn.dataset.sort;
-    $$("[data-sort]").forEach(b => b.classList.toggle("sort-active", b.dataset.sort===S.order));
-  }));
+  $$("[data-genre]").forEach(btn => {
+    btn.addEventListener("mouseenter", () => playSound("tick"));
+    btn.addEventListener("click", () => {
+      S.genre = btn.dataset.genre;
+      $$("[data-genre]").forEach(b => b.classList.toggle("active", b.dataset.genre===S.genre));
+    });
+  });
+  $$("[data-tag]").forEach(btn => {
+    btn.addEventListener("mouseenter", () => playSound("tick"));
+    btn.addEventListener("click", () => {
+      S.tag = S.tag===btn.dataset.tag ? "" : btn.dataset.tag;
+      $$("[data-tag]").forEach(b => b.classList.toggle("active", b.dataset.tag===S.tag));
+    });
+  });
+  $$("[data-sort]").forEach(btn => {
+    btn.addEventListener("mouseenter", () => playSound("tick"));
+    btn.addEventListener("click", () => {
+      S.order = btn.dataset.sort;
+      $$("[data-sort]").forEach(b => b.classList.toggle("sort-active", b.dataset.sort===S.order));
+    });
+  });
 }
 
 (function injectCSS() {
@@ -2422,6 +2434,7 @@ $("hud-title").addEventListener("click", () => {
 $("platform-overlay").addEventListener("click", e => {
   if (e.target === $("platform-overlay")) { playSound("back"); $("platform-overlay").classList.add("hidden"); }
 });
+
 
 
 
