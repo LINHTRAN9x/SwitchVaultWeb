@@ -147,17 +147,30 @@ const musicPlayer = {
   sfxEnabled: localStorage.getItem("sv_sfx") !== "false",
 
   play(trackId) {
-    const track = MUSIC_TRACKS.find(t => t.id === trackId);
-    if (!track) return;
-    this.currentId = trackId;
-    localStorage.setItem("sv_music", trackId);
-    if (this.audio) { this.audio.pause(); this.audio = null; }
-    if (!track.file) return;
-    this.audio = new Audio(track.file);
-    this.audio.loop = true;
-    this.audio.volume = this.volume;
-    this.audio.play().catch(() => {});
-  },
+  const track = MUSIC_TRACKS.find(t => t.id === trackId);
+  if (!track) return;
+  this.currentId = trackId;
+  localStorage.setItem("sv_music", trackId);
+  if (this.audio) { this.audio.pause(); this.audio = null; }
+  if (!track.file) return;
+
+  fetch(track.file)
+    .then(r => r.blob())
+    .then(blob => {
+      const blobUrl = URL.createObjectURL(blob);
+      this.audio = new Audio(blobUrl);
+      this.audio.loop = true;
+      this.audio.volume = this.volume;
+      this.audio.play().catch(() => {});
+    })
+    .catch(() => {
+      // fallback nếu fetch lỗi
+      this.audio = new Audio(track.file);
+      this.audio.loop = true;
+      this.audio.volume = this.volume;
+      this.audio.play().catch(() => {});
+    });
+},
 
   setVolume(v) {
     this.volume = v;
@@ -172,14 +185,19 @@ const musicPlayer = {
     if (this.currentId !== "off") {
       const track = MUSIC_TRACKS.find(t => t.id === this.currentId);
       if (track?.file) {
-        this.audio = new Audio(track.file);
-        this.audio.loop = true;
-        this.audio.volume = this.volume;
-        this.audio.play().catch(() => {
-          const resume = () => { this.audio?.play(); };
-          document.addEventListener("pointerdown", resume, { once: true });
-          document.addEventListener("keydown", resume, { once: true });
-        });
+        fetch(track.file).then(r => r.blob()).then(blob => {
+  const blobUrl = URL.createObjectURL(blob);
+  this.audio = new Audio(blobUrl);
+  this.audio.loop = true;
+  this.audio.volume = this.volume;
+  this.audio.play().catch(() => {
+    const resume = () => { this.audio?.play(); };
+    document.addEventListener("pointerdown", resume, { once: true });
+    document.addEventListener("keydown", resume, { once: true });
+  });
+}).catch(() => {});
+        
+        
       }
     }
   }
@@ -242,7 +260,7 @@ function getSortOpts() {
 /* ── RAWG ── */
 function buildListURL() {
   const params = new URLSearchParams({
-    key: RAWG_KEY, platforms: SWITCH_ID, page_size: PAGE_SIZE, page: S.page,
+    key: RAWG_KEY, platforms: window._activePlatformId || SWITCH_ID, page_size: PAGE_SIZE, page: S.page,
   });
   if (S.searchQ) params.set("search", S.searchQ);
   if (S.genre)   params.set("genres", S.genre);
@@ -278,6 +296,7 @@ function normalizeGame(raw) {
     website:       raw.website || null,
     esrb:          raw.esrb_rating ? raw.esrb_rating.name : null,
     stores:        (raw.stores || []).map(s => ({ name: s.store.name, url: s.url || null })),
+    platforms: (raw.platforms || []).map(p => p.platform),
     tags_top:      (raw.tags || []).filter(t => t.language === "eng").slice(0,8).map(t => t.name),
   };
 }
@@ -289,14 +308,16 @@ async function fetchGames(append = false) {
   S.loading = true;
   if (!append) showShelfLoading();
   try {
+    const isSwitch = (window._activePlatformId || SWITCH_ID) === SWITCH_ID;
     const [res, customGamesRaw] = await Promise.all([
       fetch(buildListURL()),
-      append ? Promise.resolve([]) : getCustomGames()
+      (append || !isSwitch) ? Promise.resolve([]) : getCustomGames()
     ]);
     if (!res.ok) throw new Error(`RAWG API error: ${res.status}`);
     const data = await res.json();
+    const activePid = window._activePlatformId || SWITCH_ID;
     const rawgGames = (data.results || [])
-      .filter(g => g.platforms && g.platforms.some(p => p.platform.id === SWITCH_ID))
+      .filter(g => g.platforms && g.platforms.some(p => p.platform.id === activePid))
       .map(normalizeGame);
 
     // Filter custom games theo search + genre + tag
@@ -585,7 +606,8 @@ const ALL_TAGS = [
 
 /* ══ HOME VIEW ══ */
 function showHome(restoreScroll = false) {
-  $("hud-title").innerHTML = `<i class="ph-fill ph-lightning"></i> NSwitch Vault System`;
+  const activePlat = PLATFORMS?.find(p => p.id === currentPlatform);
+$("hud-title").innerHTML = `<i class="ph-fill ph-lightning"></i> ${activePlat ? activePlat.name + " Vault" : "NSwitch Vault"}`;
   $("hud-back").classList.add("hidden");
   $("hud-login").classList.remove("hidden");
   $("hud-btns-left").innerHTML = `
@@ -907,6 +929,7 @@ function renderDetailContent(game) {
       <div class="detail-genre-row" style="margin-bottom:10px">
         ${(game.genres||[]).map(g=>`<span class="detail-genre-badge">${g}</span>`).join("")}
       </div>
+      
       <h1 class="detail-game-name">${game.name}</h1>
     </div>
     <div class="detail-stats-grid">
@@ -934,7 +957,79 @@ function renderDetailContent(game) {
         <div class="stat-label"><i class="ph-fill ph-code"></i> ${t("developer")}</div>
         <div class="stat-value" style="font-size:0.82rem">${game.dev}</div>
       </div>` : ""}
+      
     </div>
+    ${(game.platforms||[]).length ? `
+<div class="detail-platform-row" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;">
+  ${(game.platforms||[]).map(p => {
+    const icons = {
+  // PC / Mac / Linux
+  4:  "ph-windows-logo",
+  5:  "ph-apple-logo",        // macOS
+  6:  "ph-linux-logo",        // Linux
+  3:  "ph-apple-logo",        // iOS
+  21: "ph-apple-logo",        // macOS (legacy)
+
+  // PlayStation
+  1:   "ph-playstation-logo", // PS1
+  15:  "ph-playstation-logo", // PS2
+  16:  "ph-playstation-logo", // PSP
+  17:  "ph-playstation-logo", // PS3
+  18:  "ph-playstation-logo", // PS4
+  187: "ph-playstation-logo", // PS5
+  19:  "ph-playstation-logo", // PS Vita
+  186: "ph-playstation-logo", // PS Portable
+
+  // Xbox
+  11:  "ph-x-logo",           // Xbox (original)
+  12:  "ph-x-logo",           // Xbox 360
+  80:  "ph-x-logo",           // Xbox One
+  186: "ph-x-logo",           // Xbox Series S/X (rawg id)
+  171: "ph-x-logo",           // Xbox Series X
+
+  // Nintendo
+  7:  "ph-game-controller",   // Switch
+  8:  "ph-game-controller",   // 3DS
+  9:  "ph-game-controller",   // NDS
+  10: "ph-game-controller",   // Wii U
+  11: "ph-game-controller",   // Wii (conflict resolve bên dưới)
+  13: "ph-game-controller",   // Nintendo 64 (legacy)
+  83: "ph-game-controller",   // Nintendo 64
+  79: "ph-game-controller",   // SNES
+  49: "ph-game-controller",   // NES
+  24: "ph-game-controller",   // GBA
+  43: "ph-game-controller",   // GBC
+  26: "ph-game-controller",   // Game Boy
+  
+  // Android / Mobile
+  2:  "ph-device-mobile",     // iOS (RAWG)
+  14: "ph-device-mobile",     // Android
+
+  // Web / Other
+  55: "ph-globe",             // Web
+  74: "ph-globe",             // Web (alt)
+};
+
+const colors = {
+  4: "#0078d4", 5: "#555", 6: "#e67e22", 3: "#555", 21: "#555",
+  1: "#003087", 15: "#003087", 16: "#003087", 17: "#003087",
+  18: "#003087", 187: "#003087", 19: "#003087", 186: "#107c10",
+  11: "#107c10", 12: "#107c10", 80: "#107c10", 171: "#107c10",
+  7: "#e4001b", 8: "#e4001b", 9: "#e4001b", 10: "#e4001b",
+  13: "#e4001b", 83: "#e4001b", 79: "#e4001b", 49: "#e4001b",
+  24: "#e4001b", 43: "#e4001b", 26: "#e4001b",
+  2: "#52b840", 14: "#52b840",
+  55: "#6b6b7a", 74: "#6b6b7a",
+};
+    const icon  = icons[p.id]  || "ph-game-controller";
+    const color = colors[p.id] || "var(--tx-light)";
+    return `<span style="display:inline-flex;align-items:center;gap:4px;
+      background:rgba(0,0,0,0.05);border-radius:999px;padding:4px 10px;
+      font-size:0.72rem;font-weight:800;color:${color};">
+      <i class="ph-fill ${icon}" style="font-size:0.85rem;"></i>${p.name}
+    </span>`;
+  }).join("")}
+</div>` : ""}
     <p class="detail-description" style="white-space:pre-line">${desc}</p>
     ${(trailers.length || screenshots.length) ? `
     <div>
@@ -1189,7 +1284,7 @@ function openFilter() {
       background:rgba(0,0,0,0.07); animation:skeleton-pulse 1.2s ease-in-out infinite;
     }
     .detail-loading-text { padding:20px; color:var(--tx-light); font-weight:700; display:flex; align-items:center; gap:8px; }
-    .section-label { font-size:0.7rem; font-weight:800; color:var(--tx-light); text-transform:uppercase; letter-spacing:0.1em; display:flex; align-items:center; gap:5px; }
+    .section-label { font-size:0.7rem; font-weight:800; color:var(--blue2); text-transform:uppercase; letter-spacing:0.1em; display:flex; align-items:center; gap:5px; }
     .section-label i { font-size:0.9rem; }
     .stat-label i { font-size:0.8rem; vertical-align:middle; margin-right:2px; }
     .tile-rating i { font-size:0.62rem; vertical-align:middle; }
@@ -2017,6 +2112,93 @@ function openMenuOverlay() {
     localStorage.removeItem("sv_recent"); playSound("back"); openMenuOverlay();
   });
 }
+
+/* ══ PLATFORM SELECTOR ══ */
+const PLATFORMS = [
+  { id: "switch", name: "Switch",      rawgId: 7,  logo: "/image/ns.png" },
+  { id: "wiiu",   name: "Wii U",       rawgId: 10, logo: "/image/wiiu.png" },
+  { id: "3ds",    name: "3DS",         rawgId: 8,  logo: "/image/3ds.png" },
+  { id: "nds",    name: "NDS",         rawgId: 9,  logo: "/image/nds.png" },
+  { id: "gba",    name: "GBA",         rawgId: 24, logo: "/image/gba.png" },
+  { id: "gbc",    name: "GBC",         rawgId: 43, logo: "/image/gbc.png" },
+  { id: "n64",    name: "N64",         rawgId: 83, logo: "/image/n64.png" },
+  { id: "snes",   name: "SNES",        rawgId: 79, logo: "/image/snes.png" },
+  { id: "nes",    name: "NES",         rawgId: 49, logo: "/image/nes.png" },
+];
+
+let currentPlatform = "switch";
+
+function buildPlatformOverlay() {
+  const list = $("platform-list");
+  list.innerHTML = PLATFORMS.map((p, i) => `
+  <div class="platform-card ${p.id === currentPlatform ? "active" : ""}"
+       data-pid="${p.id}"
+       title="${p.name}"
+       style="animation-delay:${i * 40}ms">
+    <div class="platform-logo">
+      <img src="${p.logo}" alt="${p.name}"
+           onerror="this.parentElement.innerHTML='<span style=font-size:1.4rem;font-weight:900;color:var(--tx-mid)>${p.name.slice(0,2)}</span>'" />
+    </div>
+  </div>`).join("");
+
+  list.querySelectorAll(".platform-card").forEach(card => {
+    card.addEventListener("mouseenter", () => playSound("tick"));
+    card.addEventListener("click", () => {
+  playSound("select");
+  currentPlatform = card.dataset.pid;
+  const platform = PLATFORMS.find(p => p.id === currentPlatform);
+  window._activePlatformId = platform.rawgId;
+
+  // Reset toàn bộ filter + search khi đổi nền tảng
+  S.genre = ""; S.tag = ""; S.order = "-rating";
+  S.searchQ = ""; S.page = 1; S.games = []; S.hasMore = true; S.scrollY = 0;
+  const si = $("search-input");
+  if (si) si.value = "";
+
+  $("platform-overlay").classList.add("hidden");
+  $("hud-title").innerHTML = `<i class="ph-fill ph-lightning"></i> ${platform.name} Vault`;
+
+  // Rebuild genre pills để xóa active cũ
+  buildGenrePills();
+
+  // Ẩn nút thêm game khi không phải Switch
+  $("btn-add-game")?.remove();
+  if (isAdmin && currentPlatform === "switch") {
+    const addBtn = document.createElement("button");
+    addBtn.id = "btn-add-game";
+    addBtn.className = "dl-add-btn";
+    addBtn.style.cssText = "margin:0 28px 12px;width:calc(100% - 56px);";
+    addBtn.innerHTML = `<i class="ph-fill ph-plus-circle"></i> ${currentLang === "vi" ? "Thêm game mới" : "Add new game"}`;
+    addBtn.addEventListener("click", () => openAddGameModal());
+    const shelf = $("game-shelf");
+    shelf.parentElement.insertBefore(addBtn, shelf);
+  }
+
+  fetchGames();
+});
+  });
+  // Drag-to-scroll
+const wrap = document.querySelector("#platform-overlay .platform-scroll-wrap");
+if (wrap) {
+  let down = false, sx, sl;
+  wrap.addEventListener("mousedown", e => { down = true; sx = e.pageX - wrap.offsetLeft; sl = wrap.scrollLeft; });
+  wrap.addEventListener("mouseleave", () => down = false);
+  wrap.addEventListener("mouseup",   () => down = false);
+  wrap.addEventListener("mousemove", e => { if (!down) return; e.preventDefault(); wrap.scrollLeft = sl - (e.pageX - wrap.offsetLeft - sx); });
+}
+}
+
+$("hud-title").addEventListener("click", () => {
+  if (!$("view-home").classList.contains("active")) return;
+  playSound("open");
+  buildPlatformOverlay();
+  $("platform-overlay").classList.remove("hidden");
+});
+$("platform-overlay").addEventListener("click", e => {
+  if (e.target === $("platform-overlay")) { playSound("back"); $("platform-overlay").classList.add("hidden"); }
+});
+
+
 
 window.openShowcase = openShowcase;
 boot();
