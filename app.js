@@ -250,10 +250,15 @@ function ratingTo5(r) { return r ? parseFloat(r.toFixed(1)) : 0; }
 /* ── SORT OPTS (dynamic) ── */
 function getSortOpts() {
   return [
-    { label: t("sortRating"), val: "-rating"    },
-    { label: t("sortMeta"),   val: "-metacritic" },
-    { label: t("sortNew"),    val: "-released"   },
-    { label: t("sortName"),   val: "name"        },
+    { label: currentLang==="vi"?"Đánh giá cao nhất":"Highest Rated", val: "-rating"       },
+    { label: currentLang==="vi"?"Phổ biến nhất":"Most Popular",      val: "-added"         },
+    { label: "Metacritic",                                            val: "-metacritic"    },
+    { label: currentLang==="vi"?"Mới phát hành":"Newest",            val: "-released"      },
+    { label: currentLang==="vi"?"Cũ nhất":"Oldest",                  val: "released"       },
+    { label: currentLang==="vi"?"Tên A→Z":"Name A→Z",                val: "name"           },
+    { label: currentLang==="vi"?"Tên Z→A":"Name Z→A",                val: "-name"          },
+    { label: currentLang==="vi"?"Chơi nhiều nhất":"Most Played",     val: "-playtime"      },
+    { label: currentLang==="vi"?"Nhiều đánh giá nhất":"Most Reviews",val: "-ratings_count" },
   ];
 }
 
@@ -265,12 +270,22 @@ function buildListURL() {
   if (S.searchQ) params.set("search", S.searchQ);
   if (S.genre)   params.set("genres", S.genre);
   if (S.tag)     params.set("tags", S.tag);
-  const orderMap = { "-rating":"-rating", "-metacritic":"-metacritic", "-released":"-released", "name":"name" };
+  const orderMap = {
+  "-rating":        "-rating",
+  "-metacritic":    "-metacritic",
+  "-released":      "-released",
+  "released":       "released",
+  "name":           "name",
+  "-name":          "-name",
+  "-added":         "-added",
+  "-playtime":      "-playtime",
+  "-ratings_count": "-ratings_count",
+};
   params.set("ordering", orderMap[S.order] || "-rating");
   if (S.order === "-released") {
     const today = new Date().toISOString().split("T")[0];
     params.set("dates", `2010-01-01,${today}`);
-    params.set("ordering", "-released");
+    
   }
   return `${RAWG_BASE}/games?${params}`;
 }
@@ -342,31 +357,99 @@ async function fetchGames(append = false) {
     }
 
     // Sort custom games theo cùng tiêu chí
-    if (S.order === "name") {
-      filteredCustom.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (S.order === "-rating") {
-      filteredCustom.sort((a, b) => b.rating - a.rating);
-    } else if (S.order === "-released") {
-      filteredCustom.sort((a, b) => new Date(b.released||0) - new Date(a.released||0));
-    }
+  if (S.order === "name") {
+    filteredCustom.sort((a, b) => a.name.localeCompare(b.name));
+  } else if (S.order === "-name") {
+    filteredCustom.sort((a, b) => b.name.localeCompare(a.name));
+  } else if (S.order === "-rating") {
+    filteredCustom.sort((a, b) => (b.rating||0) - (a.rating||0) || a.name.localeCompare(b.name));
+  } else if (S.order === "-released") {
+    filteredCustom.sort((a, b) => {
+      if (!a.released && !b.released) return a.name.localeCompare(b.name);
+      if (!a.released) return 1;
+      if (!b.released) return -1;
+      return new Date(b.released) - new Date(a.released);
+    });
+  } else if (S.order === "released") {
+    filteredCustom.sort((a, b) => {
+      if (!a.released && !b.released) return a.name.localeCompare(b.name);
+      if (!a.released) return 1;
+      if (!b.released) return -1;
+      return new Date(a.released) - new Date(b.released);
+    });
+  } else if (S.order === "-playtime") {
+    filteredCustom.sort((a, b) => {
+      if (!a.playtime && !b.playtime) return a.name.localeCompare(b.name);
+      if (!a.playtime) return 1;
+      if (!b.playtime) return -1;
+      return b.playtime - a.playtime;
+    });
+  } else if (S.order === "-metacritic") {
+    filteredCustom.sort((a, b) => {
+      if (!a.metacritic && !b.metacritic) return a.name.localeCompare(b.name);
+      if (!a.metacritic) return 1;
+      if (!b.metacritic) return -1;
+      return b.metacritic - a.metacritic;
+    });
+  }
 
-    // Merge rồi sort lại toàn bộ theo đúng tiêu chí
-    let normalized;
-    if (!append) {
+  else if (S.order === "-added" || S.order === "-ratings_count") {
+    filteredCustom.sort((a, b) => (b.rating||0) - (a.rating||0));
+  }
+
+  // Merge rồi sort lại toàn bộ theo đúng tiêu chí
+  let normalized;
+  if (!append) {
     const merged = [...filteredCustom, ...rawgGames];
     if (S.order === "name") {
-        merged.sort((a, b) => a.name.localeCompare(b.name));
+      merged.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (S.order === "-name") {
+      merged.sort((a, b) => b.name.localeCompare(a.name));
     } else if (S.order === "-rating") {
-        merged.sort((a, b) => b.rating - a.rating);
+      merged.sort((a, b) => (b.rating||0) - (a.rating||0) || a.name.localeCompare(b.name));
     } else if (S.order === "-released") {
-        merged.sort((a, b) => new Date(b.released || "1970-01-01") - new Date(a.released || "1970-01-01"));
+      merged.sort((a, b) => {
+        if (!a.released && !b.released) return a.name.localeCompare(b.name);
+        if (!a.released) return 1;
+        if (!b.released) return -1;
+        return new Date(b.released) - new Date(a.released);
+      });
+    } else if (S.order === "released") {
+      merged.sort((a, b) => {
+        if (!a.released && !b.released) return a.name.localeCompare(b.name);
+        if (!a.released) return 1;
+        if (!b.released) return -1;
+        return new Date(a.released) - new Date(b.released);
+      });
+    } else if (S.order === "-playtime") {
+      merged.sort((a, b) => {
+        if (!a.playtime && !b.playtime) return a.name.localeCompare(b.name);
+        if (!a.playtime) return 1;
+        if (!b.playtime) return -1;
+        return b.playtime - a.playtime;
+      });
     } else if (S.order === "-metacritic") {
-        merged.sort((a, b) => (b.metacritic || 0) - (a.metacritic || 0));
+      merged.sort((a, b) => {
+        if (!a.metacritic && !b.metacritic) return a.name.localeCompare(b.name);
+        if (!a.metacritic) return 1;
+        if (!b.metacritic) return -1;
+        return b.metacritic - a.metacritic;
+      });
+    }
+    else if (S.order === "-added" || S.order === "-ratings_count") {
+      merged.sort((a, b) => {
+        const aC = String(a.id).startsWith("custom_");
+        const bC = String(b.id).startsWith("custom_");
+        if (aC && !bC) return 1;
+        if (!aC && bC) return -1;
+        if (aC && bC) return (b.rating||0) - (a.rating||0);
+        return (b.ratings_count||0) - (a.ratings_count||0);
+      });
     }
     normalized = merged;
-    } else {
+  } else {
     normalized = rawgGames;
-    }
+  }
 
     S.games      = append ? [...S.games, ...normalized] : normalized;
     S.totalCount = data.count + (append ? 0 : filteredCustom.length);
