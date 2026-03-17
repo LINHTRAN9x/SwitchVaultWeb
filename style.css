@@ -284,7 +284,9 @@ body {
   will-change: transform;
   transform-origin: center center;            
 }
-
+@media (hover: none) {
+  .game-tile:hover { transform: none !important; box-shadow: none !important; z-index: auto !important; }
+}
 
 .game-tile.selected {
   transform: scale(1.04);
@@ -1186,3 +1188,85 @@ body {
   margin-right: 8px;
 }
 .hud-lang-btn:hover { transform: scale(1.15); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+
+
+/* ══ MOBILE RESPONSIVE ══ */
+@media (max-width: 600px) {
+
+  /* HUD TOP */
+  .hud-top { padding: 0 12px; gap: 8px; }
+  .hud-top-left { min-width: auto; }
+  .hud-top-right { min-width: auto; gap: 4px; }
+  .hud-title-pill { font-size: 0.78rem; padding: 7px 14px; max-width: 200px; }
+  .hud-clock-pill { padding: 7px 10px; font-size: 0.75rem; gap: 5px; }
+  .hud-clock-pill .ph-battery-full { display: none; }
+  .hud-sep { display: none; }
+  .hud-login-btn { width: 32px; height: 32px; font-size: 0.9rem; }
+  .hud-lang-btn { height: 32px; padding: 4px 8px; font-size: 1rem; }
+  .hud-settings-btn { width: 32px; height: 32px; font-size: 0.9rem; margin-right: 4px; }
+
+  /* SEARCH HUD */
+  .search-hud { padding: 4px 12px 10px; }
+  .genre-pills-hud { display: none; }
+  #search-input { width: 100%; }
+
+  /* GAME SHELF */
+  .game-shelf { padding: 0 12px 12px; }
+  .shelf-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+    grid-auto-rows: 120px;
+  }
+  .game-tile.wide,
+  .game-tile.big  { grid-column: span 2; }
+  .game-tile.tall { grid-row: span 2; }
+  .game-tile.big  { grid-row: span 2; }
+  .tile-name { font-size: 0.7rem; }
+
+  /* BOTTOM HUD */
+  .hud-bottom { padding: 0 10px; }
+  .hud-bottom-inner { padding: 0 12px; }
+  .hud-btn { font-size: 0.72rem; gap: 4px; }
+  .hud-btn kbd { width: 20px; height: 20px; font-size: 0.62rem; }
+  .hud-count-pill { font-size: 0.72rem; padding: 4px 10px; }
+
+  /* DETAIL VIEW */
+  .detail-layout { flex-direction: column; }
+  .detail-left {
+    width: 100%;
+    flex-direction: row;
+    height: 140px;
+    padding: 12px;
+    justify-content: center;
+    gap: 10px;
+    border-right: none;
+    border-bottom: 1px solid rgba(0,0,0,0.07);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+  }
+  .detail-tile-main { width: 110px; height: 110px; }
+  .detail-tile-adj  { width: 80px; height: 80px; }
+  .detail-right { padding: 16px 14px; gap: 12px; }
+  .detail-game-name { font-size: 1.4rem; }
+  .detail-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat-card { padding: 10px 12px; }
+  .stat-value { font-size: 0.88rem; }
+  .detail-screenshots { gap: 8px; }
+  .detail-ss-thumb { width: 110px; height: 68px; }
+  .similar-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+  .detail-actions { flex-wrap: wrap; gap: 8px; }
+  .detail-btn { padding: 9px 16px; font-size: 0.8rem; }
+
+  /* OVERLAY */
+  .overlay-panel-inner { padding: 20px 16px 32px; }
+  .login-box { width: calc(100vw - 32px) !important; padding: 24px 20px; }
+
+  /* LOADING */
+  .loading-wordmark { font-size: 1.6rem; }
+  .loading-logo { padding: 18px 28px; gap: 12px; }
+}
+
+@media (max-width: 400px) {
+  .shelf-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  .hud-title-pill { max-width: 140px; font-size: 0.72rem; }
+}
