@@ -2480,6 +2480,7 @@ function openMenuOverlay() {
 /* ══ PLATFORM SELECTOR ══ */
 const PLATFORMS = [
   { id: "switch", name: "Switch",      rawgId: 7,  logo: "/image/ns.png" },
+  { id: "pc",     name: "PC",          rawgId: 4,  logo: "/image/steam.jpg" },
   { id: "wiiu",   name: "Wii U",       rawgId: 10, logo: "/image/wiiu.png" },
   { id: "3ds",    name: "3DS",         rawgId: 8,  logo: "/image/3ds.png" },
   { id: "nds",    name: "NDS",         rawgId: 9,  logo: "/image/nds.png" },
