@@ -2284,7 +2284,7 @@ function updateSEO({ title, description, image, url }) {
     ? description.replace(/\n/g, " ").slice(0, 160)
     : "Khám phá hàng nghìn game Nintendo Switch với đánh giá, trailer và link tải.";
 
-  const img  = image || "https://placehold.co/1200x630/dff1fa/009AC7?text=Switch+Vault";
+  const img  = image || "https://i.ibb.co/sdvq23cb/90661e30d4360961d07d6c05893a5369.jpg";
   const link = url || window.location.href;
 
   setMeta("og-title",   document.title);
