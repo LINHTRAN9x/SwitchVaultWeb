@@ -1658,34 +1658,104 @@ body {
 }
 
 
-.dl-expand-wrap { position: relative; display: inline-block; }
+/* Expand button - trông như badge host */
+.dl-expand-wrap { position: relative; }
 .dl-expand-btn {
-  background: linear-gradient(135deg, var(--blue), var(--blue2));
-  color: #fff; border: none; border-radius: 10px; padding: 7px 14px;
+  display: inline-flex; align-items: center; gap: 7px;
+  border-radius: 10px; padding: 7px 14px;
   font-family: var(--font); font-size: 0.8rem; font-weight: 800;
-  cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  cursor: pointer; transition: all 0.18s var(--ease-bounce);
   box-shadow: 0 3px 10px rgba(58,180,216,0.3);
-  transition: all 0.18s var(--ease-bounce);
+  background: linear-gradient(135deg, var(--blue), var(--blue2));
+  color: #fff; border: none;
 }
-.dl-expand-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(58,180,216,0.4); }
-.dl-expand-btn i { transition: transform 0.2s; }
-.dl-expand-wrap.open .dl-expand-btn i { transform: rotate(180deg); }
+.dl-expand-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(58,180,216,0.45); }
+.dl-expand-btn i.ph-caret-down { font-size: 0.7rem; transition: transform 0.22s; }
+.dl-expand-wrap.open .dl-expand-btn i.ph-caret-down { transform: rotate(180deg); }
+
+/* Dropdown */
 .dl-expand-list {
-  display: none; flex-direction: column; gap: 4px;
+  display: none; flex-direction: column; gap: 2px;
   position: absolute; top: calc(100% + 8px); left: 0;
-  background: var(--panel2); border-radius: 14px;
-  padding: 8px; min-width: 180px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-  z-index: 100; border: 1.5px solid rgba(0,0,0,0.07);
-  animation: pop-in 0.2s var(--ease-bounce);
+  background: var(--panel2); border-radius: 16px;
+  padding: 8px; min-width: 220px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.18);
+  z-index: 200; border: 1.5px solid rgba(0,0,0,0.07);
+  animation: pop-in 0.22s var(--ease-bounce);
 }
 .dl-expand-wrap.open .dl-expand-list { display: flex; }
+
+/* Mỗi part item */
 .dl-expand-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 12px; border-radius: 10px;
-  font-family: var(--font); font-size: 0.82rem; font-weight: 800;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: 12px;
+  font-family: var(--font); font-size: 0.83rem; font-weight: 800;
   color: var(--tx); text-decoration: none;
+  transition: all 0.15s var(--ease-bounce);
+  position: relative;
+}
+.dl-expand-item::before {
+  content: '';
+  position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 0; border-radius: 2px;
+  background: var(--blue); transition: height 0.2s;
+}
+.dl-expand-item:hover {
+  background: rgba(58,180,216,0.08);
+  color: var(--blue);
+  padding-left: 18px;
+}
+.dl-expand-item:hover::before { height: 60%; }
+.dl-expand-item img { width: 16px; height: 16px; object-fit: contain; flex-shrink: 0; }
+
+/* Part number badge */
+.dl-expand-item .part-num {
+  background: rgba(58,180,216,0.12); color: var(--blue);
+  border-radius: 6px; padding: 2px 7px;
+  font-size: 0.7rem; font-weight: 900;
+  margin-left: auto; flex-shrink: 0;
+}
+
+
+/* ── Link Modal ── */
+.dl-url-row {
+  background: var(--panel2); border-radius: 14px;
+  padding: 12px 14px; margin-bottom: 8px;
+  border: 1.5px solid rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.dl-url-row-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.dl-url-label-host {
+  flex: 1; background: #f0f0f4; border: 2px solid transparent;
+  border-radius: 10px; padding: 8px 12px;
+  font-family: var(--font); font-size: 0.88rem; font-weight: 800;
+  color: var(--tx); outline: none; transition: border-color 0.18s;
+}
+.dl-url-label-host:focus { border-color: var(--blue); background: #fff; }
+.dl-parts-wrap { display: flex; flex-direction: column; gap: 6px; }
+.dl-part-row {
+  display: flex; gap: 6px; align-items: center;
+  background: #f8f8fc; border-radius: 10px; padding: 6px 8px;
+}
+.dl-part-label, .dl-part-url {
+  background: transparent; border: none; outline: none;
+  font-family: var(--font); font-weight: 700; color: var(--tx);
+  font-size: 0.82rem;
+}
+.dl-part-label { width: 90px; flex-shrink: 0; color: var(--tx-mid); }
+.dl-part-label::placeholder { color: var(--tx-light); }
+.dl-part-url { flex: 1; }
+.dl-part-url::placeholder { color: var(--tx-light); }
+.dl-part-divider { width: 1px; height: 16px; background: rgba(0,0,0,0.1); flex-shrink: 0; }
+.dl-add-part-btn {
+  margin-top: 8px; background: transparent; border: 1.5px dashed rgba(144,96,216,0.35);
+  border-radius: 8px; padding: 5px 12px; width: 100%;
+  font-family: var(--font); font-size: 0.75rem; font-weight: 800;
+  color: var(--purple); cursor: pointer; display: flex;
+  align-items: center; justify-content: center; gap: 5px;
   transition: all 0.15s;
 }
-.dl-expand-item:hover { background: rgba(58,180,216,0.1); color: var(--blue); transform: translateX(4px); }
+.dl-add-part-btn:hover { background: rgba(144,96,216,0.08); border-color: var(--purple); }
 

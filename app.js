@@ -1859,20 +1859,24 @@ function openLinkModal(game, existing, idx) {
   modal.className = "login-overlay";
   modal.id = "dl-modal";
   const rowsHtml = entries.map((e, i) => `
-  <div class="dl-url-row" style="background:#f8f8fc;border-radius:12px;padding:10px;margin-bottom:6px;">
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-      <input type="text" class="dl-url-label" placeholder="Tên host (GG Drive, Mega...)" value="${e.label||""}" style="width:130px;flex-shrink:0" />
-      ${i > 0 ? `<button class="dl-del-btn dl-url-del" style="flex-shrink:0;margin-left:auto"><i class="ph-fill ph-minus-circle"></i></button>` : ""}
+  <div class="dl-url-row" style="margin-bottom:8px;">
+    <div class="dl-url-row-header">
+      <input type="text" class="dl-url-label dl-url-label-host"
+        placeholder="Tên host (GG Drive, Mega...)" value="${e.label||""}" />
+      ${i > 0 ? `<button class="dl-del-btn dl-url-del" style="flex-shrink:0">
+        <i class="ph-fill ph-minus-circle"></i></button>` : ""}
     </div>
-    <div class="dl-parts-wrap" style="display:flex;flex-direction:column;gap:6px;">
-      ${(e.parts || (e.url ? [{label:"", url: e.url}] : [{label:"", url:""}])).map((p, pi) => `
-        <div class="dl-part-row" style="display:flex;gap:6px;align-items:center;">
-          <input type="text" class="dl-part-label" placeholder="Part 1, Part 2..." value="${p.label||""}" style="width:90px;flex-shrink:0" />
-          <input type="text" class="dl-part-url" placeholder="https://..." value="${p.url||""}" style="flex:1" />
-          ${pi > 0 ? `<button class="dl-del-btn dl-part-del" style="flex-shrink:0"><i class="ph-fill ph-minus"></i></button>` : ""}
+    <div class="dl-parts-wrap">
+      ${(e.parts || [{label:"",url:""}]).map((p, pi) => `
+        <div class="dl-part-row">
+          <input type="text" class="dl-part-label" placeholder="Part ${pi+1}" value="${p.label||""}" />
+          <div class="dl-part-divider"></div>
+          <input type="text" class="dl-part-url" placeholder="https://..." value="${p.url||""}" />
+          ${pi > 0 ? `<button class="dl-del-btn dl-part-del" style="flex-shrink:0;width:24px;height:24px;">
+            <i class="ph-fill ph-x"></i></button>` : ""}
         </div>`).join("")}
     </div>
-    <button class="dl-add-part-btn" style="margin-top:6px;background:transparent;border:none;font-family:var(--font);font-size:0.75rem;font-weight:800;color:var(--purple);cursor:pointer;padding:2px 0;">
+    <button class="dl-add-part-btn">
       <i class="ph-fill ph-plus-circle"></i> Thêm part
     </button>
   </div>`).join("");
@@ -2643,10 +2647,10 @@ function playGameMusic(url) {
   // Lưu thời gian hiện tại của nhạc nền
   if (musicPlayer.audio) {
     musicPlayer._savedTime = musicPlayer.audio.currentTime;
+    musicPlayer._savedAudio = musicPlayer.audio;
     musicPlayer.audio.pause();
   }
   // Dừng nhạc nền hiện tại
-  if (musicPlayer.audio) { musicPlayer.audio.pause(); }
 
   const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
   if (ytMatch) {
@@ -2679,16 +2683,16 @@ function stopGameMusic() {
     musicPlayer._gameAudio = null;
   }
 
-  // Resume nhạc nền — KHÔNG gọi play() để tránh IDM bắt fetch
-  if (musicPlayer.audio) {
+  // Dùng audio đã lưu — KHÔNG tạo Audio mới để tránh IDM
+  const audioToResume = musicPlayer._savedAudio || musicPlayer.audio;
+  if (audioToResume) {
+    musicPlayer.audio = audioToResume;
     if (musicPlayer._savedTime) {
-      musicPlayer.audio.currentTime = musicPlayer._savedTime;
+      audioToResume.currentTime = musicPlayer._savedTime;
       musicPlayer._savedTime = 0;
     }
-    musicPlayer.audio.play().catch(() => {});
-  } else if (hadGameMusic && musicPlayer.currentId !== "off") {
-    // Chỉ fetch lại nếu audio bị null hoàn toàn
-    musicPlayer.play(musicPlayer.currentId);
+    audioToResume.play().catch(() => {});
+    musicPlayer._savedAudio = null;
   }
 }
 
