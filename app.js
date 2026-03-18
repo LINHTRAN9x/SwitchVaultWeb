@@ -1611,7 +1611,8 @@ function closeLogin() {
 /* ══ JSONBIN STORAGE ══ */
 const JSONBIN_KEY = "$2a$10$5BMcpkNoXVkUfpQhg5UFAuPHh.WAUyPTcpKsTx4OjM3Q.Zb6BRCIu";
 const JSONBIN_BIN = "69b89854c3097a1dd52fa8b8";
-const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN}/latest`;
+const JSONBIN_URL     = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN}/latest`; // dùng để GET
+const JSONBIN_PUT_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN}`;
 let linksCache = null;
 
 async function fetchAllLinks() {
@@ -1635,8 +1636,8 @@ async function saveLinks(gameId, links) {
   const all = await fetchAllLinks();
   all[gameId] = links;
   linksCache  = all;
-  await fetch(JSONBIN_URL, {
-    method: "PUT",
+  await fetch(JSONBIN_PUT_URL, {
+      method: "PUT",
     headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_KEY },
     body: JSON.stringify({ links: all })
   });
@@ -1651,8 +1652,8 @@ async function saveTrailers(gameId, trailers) {
   const all = await fetchAllLinks();
   all[`trailers_${gameId}`] = trailers;
   linksCache = all;
-  await fetch(JSONBIN_URL, {
-    method: "PUT",
+  await fetch(JSONBIN_PUT_URL, {
+      method: "PUT",
     headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_KEY },
     body: JSON.stringify({ links: all })
   });
@@ -1666,8 +1667,8 @@ async function saveViethoaList(list) {
   const all = await fetchAllLinks();
   all["viethoa_games"] = list;
   linksCache = all;
-  await fetch(JSONBIN_URL, {
-    method: "PUT",
+  await fetch(JSONBIN_PUT_URL, {
+      method: "PUT",
     headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_KEY },
     body: JSON.stringify({ links: all })
   });
@@ -2076,8 +2077,8 @@ async function saveCustomGames(games) {
   const all = await fetchAllLinks();
   all["custom_games"] = games;
   linksCache = all;
-  await fetch(JSONBIN_URL, {
-    method: "PUT",
+  await fetch(JSONBIN_PUT_URL, {
+      method: "PUT",
     headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_KEY },
     body: JSON.stringify({ links: all })
   });
@@ -2526,7 +2527,7 @@ function openEditImagesModal(game) {
     const all = await fetchAllLinks();
     all[`custom_img_${game.id}`] = { cover: newCover, screenshots: newShots };
     linksCache = all;
-    await fetch(JSONBIN_URL, {
+    await fetch(JSONBIN_PUT_URL, {
       method: "PUT",
       headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_KEY },
       body: JSON.stringify({ links: all })
