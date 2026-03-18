@@ -2579,6 +2579,11 @@ async function openEditImagesModal(game) {
 
 function playGameMusic(url) {
   if (!url) return;
+  // Lưu thời gian hiện tại của nhạc nền
+  if (musicPlayer.audio) {
+    musicPlayer._savedTime = musicPlayer.audio.currentTime;
+    musicPlayer.audio.pause();
+  }
   // Dừng nhạc nền hiện tại
   if (musicPlayer.audio) { musicPlayer.audio.pause(); }
 
@@ -2604,16 +2609,27 @@ function playGameMusic(url) {
 }
 
 function stopGameMusic() {
-  // Dừng YouTube iframe
   const iframe = document.getElementById("game-music-iframe");
+  const hadGameMusic = iframe || musicPlayer._gameAudio;  // ← kiểm tra có nhạc game k
+
   if (iframe) { iframe.src = ""; iframe.remove(); }
-  // Dừng mp3 game
   if (musicPlayer._gameAudio) {
     musicPlayer._gameAudio.pause();
     musicPlayer._gameAudio = null;
   }
-  // Khôi phục nhạc nền
-  if (musicPlayer.currentId !== "off") musicPlayer.play(musicPlayer.currentId);
+
+  // Chỉ restart nhạc nền nếu trước đó có nhạc game
+  if (hadGameMusic && musicPlayer.currentId !== "off") {
+    musicPlayer.play(musicPlayer.currentId);
+    // Sau khi play, seek về đúng chỗ đã dừng
+    setTimeout(() => {
+      if (musicPlayer.audio && musicPlayer._savedTime) {
+        musicPlayer.audio.currentTime = musicPlayer._savedTime;
+        musicPlayer._savedTime = 0;
+      }
+    }, 300);
+  }
+  // Nếu không có nhạc game → không làm gì → nhạc nền tiếp tục bình thường
 }
 
 
