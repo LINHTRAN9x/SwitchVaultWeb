@@ -1571,6 +1571,7 @@ function initLogin() {
   $("hud-login").addEventListener("click", () => {
     if (isAdmin) {
       isAdmin = false;
+      document.body.style.userSelect = "none";
       $("hud-login").classList.remove("is-admin");
       $("hud-login").innerHTML = `<i class="ph-fill ph-user"></i>`;
       playSound("back");
@@ -1598,6 +1599,7 @@ async function doLogin() {
   const p = await hashStr($("login-pass").value);
   if (u === ADMIN_HASH.user && p === ADMIN_HASH.pass) {
     isAdmin = true;
+    document.body.style.userSelect = "text";
     $("hud-login").classList.add("is-admin");
     $("hud-login").innerHTML = `<img src="https://i.ibb.co/sdvq23cb/90661e30d4360961d07d6c05893a5369.jpg" alt="Admin" />`;
     closeLogin();
