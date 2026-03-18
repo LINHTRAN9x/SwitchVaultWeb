@@ -451,6 +451,13 @@ async function fetchGames(append = false) {
     }
     normalized = merged;
     normalized.forEach(g => { g.isViethoa = viethoaIds.includes(String(g.id)); });
+
+    // Áp dụng ảnh custom cho tile ngoài shelf
+    const allLinks = await fetchAllLinks();
+    normalized.forEach(g => {
+      const customImg = allLinks[`custom_img_${g.id}`];
+      if (customImg?.cover) g.img = customImg.cover;
+    });
   } else {
     normalized = rawgGames;
   }
@@ -560,6 +567,12 @@ async function fetchGameDetail(id) {
     } catch { /* giữ nguyên nếu lỗi */ }
   }
 
+  const customImg2 = (await fetchAllLinks())[`custom_img_${game.id}`];
+  if (customImg2) {
+    if (customImg2.cover) game.img = customImg2.cover;
+    if (customImg2.screenshots?.length) game.screenshots = customImg2.screenshots;
+  }
+
   return game;
 }
 
@@ -586,7 +599,7 @@ async function fetchGameDetail(id) {
   const customImg = (await fetchAllLinks())[`custom_img_${game.id}`];
   if (customImg) {
     if (customImg.cover) game.img = customImg.cover;
-    if (customImg.screenshots?.length) game.screenshots = [...customImg.screenshots, ...(game.screenshots || [])];
+    if (customImg.screenshots?.length) game.screenshots = customImg.screenshots;
   }
   if (game.description) {
     try {
