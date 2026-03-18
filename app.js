@@ -582,7 +582,12 @@ async function fetchGameDetail(id) {
     .map(g => ({ id: g.id, slug: g.slug, name: g.name, img: g.background_image || "", rating: ratingTo5(g.rating) }));
 
   game.trailers = await getTrailers(game.id).catch(() => []);
-
+  // Load ảnh custom nếu admin đã override
+  const customImg = (await fetchAllLinks())[`custom_img_${game.id}`];
+  if (customImg) {
+    if (customImg.cover) game.img = customImg.cover;
+    if (customImg.screenshots?.length) game.screenshots = [...customImg.screenshots, ...(game.screenshots || [])];
+  }
   if (game.description) {
     try {
       const rawDesc = game.description
@@ -1177,9 +1182,22 @@ const colors = {
   ${isAdmin ? `<button class="detail-btn detail-btn-secondary" id="btn-viethoa">
     <i class="ph-fill ph-flag"></i> Việt hóa...
   </button>` : ""}
-  ${isAdmin && game.isCustom ? `
-    ...
-  ` : ""}
+  ${isAdmin ? `
+  <button class="detail-btn detail-btn-secondary" id="btn-edit-cover" style="color:var(--purple)">
+    <i class="ph-fill ph-image"></i>
+    ${currentLang === "vi" ? "Sửa ảnh/Screenshots" : "Edit images"}
+  </button>
+` : ""}
+${isAdmin && game.isCustom ? `
+  <button class="detail-btn detail-btn-secondary" id="btn-edit-game">
+    <i class="ph-fill ph-pencil-simple"></i>
+    ${currentLang === "vi" ? "Sửa game" : "Edit game"}
+  </button>
+  <button class="detail-btn detail-btn-secondary" id="btn-del-game" style="color:var(--red)">
+    <i class="ph-fill ph-trash"></i>
+    ${currentLang === "vi" ? "Xóa game" : "Delete"}
+  </button>
+` : ""}
 </div>`;
 
   renderDownloadLinks(game);
@@ -1227,6 +1245,7 @@ const colors = {
       ? (currentLang==="vi" ? "Đã thích" : "Favorited")
       : (currentLang==="vi" ? "Yêu thích" : "Favorite")}`;
   });
+  $("btn-edit-cover")?.addEventListener("click", () => openEditImagesModal(game));
 
   // Init trạng thái nút Việt hóa
 isViethoa(game.id).then(vh => {
@@ -2112,6 +2131,11 @@ function openAddGameModal(existing = null) {
       <div class="login-field">
         <label>${currentLang==="vi"?"Ảnh bìa (URL)":"Cover image (URL)"}</label>
         <input type="text" id="ag-img" placeholder="https://..." value="${existing?.img||""}" />
+        <div style="margin-top:6px;display:flex;gap:6px;">
+          <button type="button" id="ag-img-paste" style="background:rgba(58,180,216,0.1);border:1.5px dashed var(--blue);border-radius:8px;padding:5px 12px;font-family:var(--font);font-size:0.78rem;font-weight:800;color:var(--blue);cursor:pointer;">
+            <i class="ph-fill ph-clipboard"></i> Paste URL
+          </button>
+        </div>
         <div id="ag-img-preview" style="margin-top:6px;${existing?.img?'':'display:none'}">
           <img id="ag-img-thumb" src="${existing?.img||''}" style="width:80px;height:80px;object-fit:cover;border-radius:10px;" />
         </div>
@@ -2180,6 +2204,17 @@ function openAddGameModal(existing = null) {
     } else {
       $("ag-img-preview").style.display = "none";
     }
+  });
+
+  document.getElementById("ag-img-paste")?.addEventListener("click", async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text.startsWith("http")) {
+        $("ag-img").value = text;
+        $("ag-img-thumb").src = text;
+        $("ag-img-preview").style.display = "block";
+      }
+    } catch {}
   });
 
   $("ag-cancel").addEventListener("click", () => modal.remove());
@@ -2437,6 +2472,75 @@ $("platform-overlay").addEventListener("click", e => {
   if (e.target === $("platform-overlay")) { playSound("back"); $("platform-overlay").classList.add("hidden"); }
 });
 
+
+
+function openEditImagesModal(game) {
+  playSound("open");
+  const modal = document.createElement("div");
+  modal.className = "login-overlay";
+  modal.id = "edit-images-modal";
+  modal.innerHTML = `
+    <div class="login-box" style="width:500px;max-height:85vh;overflow-y:auto;">
+      <div class="login-title">
+        <i class="ph-fill ph-image" style="color:var(--purple)"></i>
+        ${currentLang === "vi" ? "Sửa ảnh & Screenshots" : "Edit images"}
+      </div>
+      <div class="login-field">
+        <label>${currentLang === "vi" ? "Ảnh bìa (URL)" : "Cover image (URL)"}</label>
+        <input type="text" id="ei-cover" placeholder="https://..." value="${game.img || ""}" />
+        <div id="ei-cover-preview" style="margin-top:6px;">
+          <img id="ei-cover-thumb" src="${game.img || ""}"
+            style="width:80px;height:80px;object-fit:cover;border-radius:10px;${game.img ? "" : "display:none"}" />
+        </div>
+      </div>
+      <div class="login-field">
+        <label>${currentLang === "vi" ? "Screenshots (mỗi URL 1 dòng)" : "Screenshots (one URL per line)"}</label>
+        <textarea id="ei-screenshots" rows="5"
+          style="width:100%;background:#f0f0f4;border:2px solid transparent;border-radius:12px;
+                 padding:10px 14px;font-family:var(--font);font-size:0.82rem;font-weight:500;
+                 color:var(--tx);outline:none;resize:vertical;"
+          placeholder="https://img1.jpg&#10;https://img2.jpg">${(game.screenshots || []).join("\n")}</textarea>
+      </div>
+      <button class="login-submit" id="ei-save">
+        <i class="ph-fill ph-floppy-disk"></i> ${currentLang === "vi" ? "Lưu" : "Save"}
+      </button>
+      <button class="login-cancel" id="ei-cancel">${currentLang === "vi" ? "Hủy" : "Cancel"}</button>
+    </div>`;
+  $("console-ui").appendChild(modal);
+
+  $("ei-cover").addEventListener("input", () => {
+    const url = $("ei-cover").value.trim();
+    const thumb = $("ei-cover-thumb");
+    thumb.src = url;
+    thumb.style.display = url ? "block" : "none";
+  });
+
+  $("ei-cancel").addEventListener("click", () => modal.remove());
+  modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
+
+  $("ei-save").addEventListener("click", async () => {
+    const newCover = $("ei-cover").value.trim();
+    const newShots = $("ei-screenshots").value.split("\n").map(s => s.trim()).filter(Boolean);
+
+    // Lưu vào JSONBin dưới key riêng
+    const all = await fetchAllLinks();
+    all[`custom_img_${game.id}`] = { cover: newCover, screenshots: newShots };
+    linksCache = all;
+    await fetch(JSONBIN_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_KEY },
+      body: JSON.stringify({ links: all })
+    });
+
+    // Cập nhật game object ngay
+    if (newCover) game.img = newCover;
+    if (newShots.length) game.screenshots = newShots;
+
+    modal.remove();
+    playSound("select");
+    renderDetailContent(game);
+  });
+}
 
 
 
