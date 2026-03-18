@@ -1633,6 +1633,7 @@ async function getLinks(gameId) {
 }
 
 async function saveLinks(gameId, links) {
+  linksCache = null;
   const all = await fetchAllLinks();
   all[gameId] = links;
   linksCache  = all;
@@ -1649,6 +1650,7 @@ async function getTrailers(gameId) {
 }
 
 async function saveTrailers(gameId, trailers) {
+  linksCache = null;
   const all = await fetchAllLinks();
   all[`trailers_${gameId}`] = trailers;
   linksCache = all;
@@ -1664,6 +1666,7 @@ async function getViethoaList() {
   return all["viethoa_games"] || [];
 }
 async function saveViethoaList(list) {
+  linksCache = null;
   const all = await fetchAllLinks();
   all["viethoa_games"] = list;
   linksCache = all;
@@ -2074,6 +2077,7 @@ async function getCustomGames() {
 }
 
 async function saveCustomGames(games) {
+  linksCache = null;
   const all = await fetchAllLinks();
   all["custom_games"] = games;
   linksCache = all;
@@ -2520,6 +2524,7 @@ function openEditImagesModal(game) {
   modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
 
   $("ei-save").addEventListener("click", async () => {
+    linksCache = null;
     const newCover = $("ei-cover").value.trim();
     const newShots = $("ei-screenshots").value.split("\n").map(s => s.trim()).filter(Boolean);
 
