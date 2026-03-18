@@ -976,6 +976,10 @@ function showDetailWithGame(game) {
   document.querySelector(".detail-website-btn")?.addEventListener("click", () => { if (game.website) window.open(game.website,"_blank"); });
   document.querySelector(".detail-media-btn")?.addEventListener("click", () => openShowcase(game));
   renderDetailContent(game);
+  fetchAllLinks().then(all => {
+    const gameMusic = all[`game_music_${game.id}`];
+    if (gameMusic) playGameMusic(gameMusic);
+  });
   history.pushState(null, "", `#/game/${game.slug || game.id}`);
 }
 
@@ -2065,6 +2069,7 @@ function boot() {
 
 function goHome() {
   playSound("back");
+  stopGameMusic();
   document.querySelector(".detail-media-preview")?.remove();
   const savedScroll = S.scrollY;
   const detail = $("view-detail");
@@ -2494,7 +2499,7 @@ $("platform-overlay").addEventListener("click", e => {
 
 
 
-function openEditImagesModal(game) {
+async function openEditImagesModal(game) {
   playSound("open");
   const modal = document.createElement("div");
   modal.className = "login-overlay";
@@ -2521,6 +2526,11 @@ function openEditImagesModal(game) {
                  color:var(--tx);outline:none;resize:vertical;"
           placeholder="https://img1.jpg&#10;https://img2.jpg">${(game.screenshots || []).join("\n")}</textarea>
       </div>
+      <div class="login-field">
+        <label>🎵 Nhạc game (URL mp3 hoặc YouTube)</label>
+        <input type="text" id="ei-music" placeholder="https://...mp3 hoặc youtube.com/watch?v=..." 
+          value="${(await fetchAllLinks())[`game_music_${game.id}`] || ""}" />
+      </div>
       <button class="login-submit" id="ei-save">
         <i class="ph-fill ph-floppy-disk"></i> ${currentLang === "vi" ? "Lưu" : "Save"}
       </button>
@@ -2546,6 +2556,9 @@ function openEditImagesModal(game) {
     // Lưu vào JSONBin dưới key riêng
     const all = await fetchAllLinks();
     all[`custom_img_${game.id}`] = { cover: newCover, screenshots: newShots };
+    const musicUrl = $("ei-music").value.trim();
+    if (musicUrl) all[`game_music_${game.id}`] = musicUrl;
+    else delete all[`game_music_${game.id}`];
     linksCache = all;
     await fetch(JSONBIN_PUT_URL, {
       method: "PUT",
@@ -2563,6 +2576,45 @@ function openEditImagesModal(game) {
   });
 }
 
+
+function playGameMusic(url) {
+  if (!url) return;
+  // Dừng nhạc nền hiện tại
+  if (musicPlayer.audio) { musicPlayer.audio.pause(); }
+
+  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if (ytMatch) {
+    // YouTube → dùng iframe ẩn
+    let iframe = document.getElementById("game-music-iframe");
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.id = "game-music-iframe";
+      iframe.style.display = "none";
+      document.body.appendChild(iframe);
+    }
+    iframe.src = `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&loop=1&playlist=${ytMatch[1]}`;
+  } else {
+    // Direct mp3
+    const audio = new Audio(url);
+    audio.loop = true;
+    audio.volume = musicPlayer.volume;
+    audio.play().catch(() => {});
+    musicPlayer._gameAudio = audio;
+  }
+}
+
+function stopGameMusic() {
+  // Dừng YouTube iframe
+  const iframe = document.getElementById("game-music-iframe");
+  if (iframe) { iframe.src = ""; iframe.remove(); }
+  // Dừng mp3 game
+  if (musicPlayer._gameAudio) {
+    musicPlayer._gameAudio.pause();
+    musicPlayer._gameAudio = null;
+  }
+  // Khôi phục nhạc nền
+  if (musicPlayer.currentId !== "off") musicPlayer.play(musicPlayer.currentId);
+}
 
 
 window.openShowcase = openShowcase;
