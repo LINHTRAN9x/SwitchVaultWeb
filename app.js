@@ -991,7 +991,7 @@ async function showDetail(id, slug) {
   }
 }
 
-function renderDetailContent(game) {
+async function renderDetailContent(game) {
   const idx   = S.detailIdx;
   const prev2 = S.games[idx - 2];
   const prev  = S.games[idx - 1];
@@ -1592,13 +1592,15 @@ function closeLogin() {
 /* ══ JSONBIN STORAGE ══ */
 const JSONBIN_KEY = "$2a$10$5BMcpkNoXVkUfpQhg5UFAuPHh.WAUyPTcpKsTx4OjM3Q.Zb6BRCIu";
 const JSONBIN_BIN = "69b89854c3097a1dd52fa8b8";
-const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN}`;
+const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN}/latest`;
 let linksCache = null;
 
 async function fetchAllLinks() {
   if (linksCache) return linksCache;
   try {
-    const res  = await fetch(JSONBIN_URL, { headers: { "X-Master-Key": JSONBIN_KEY } });
+    const res  = await fetch(JSONBIN_URL + `?t=${Date.now()}`, {
+      headers: { "X-Master-Key": JSONBIN_KEY, "Cache-Control": "no-cache" }
+    });
     const data = await res.json();
     linksCache = data.record.links || {};
   } catch { linksCache = {}; }
