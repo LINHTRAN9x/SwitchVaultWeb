@@ -154,22 +154,10 @@ const musicPlayer = {
   if (this.audio) { this.audio.pause(); this.audio = null; }
   if (!track.file) return;
 
-  fetch(track.file)
-    .then(r => r.blob())
-    .then(blob => {
-      const blobUrl = URL.createObjectURL(blob);
-      this.audio = new Audio(blobUrl);
-      this.audio.loop = true;
-      this.audio.volume = this.volume;
-      this.audio.play().catch(() => {});
-    })
-    .catch(() => {
-      // fallback nếu fetch lỗi
-      this.audio = new Audio(track.file);
-      this.audio.loop = true;
-      this.audio.volume = this.volume;
-      this.audio.play().catch(() => {});
-    });
+  this.audio = new Audio(track.file);
+  this.audio.loop = true;
+  this.audio.volume = this.volume;
+  this.audio.play().catch(() => {});
 },
 
   setVolume(v) {
@@ -179,28 +167,23 @@ const musicPlayer = {
   },
 
   init() {
-    const playableTracks = MUSIC_TRACKS.filter(t => t.file);
-    const randomTrack = playableTracks[Math.floor(Math.random() * playableTracks.length)];
-    this.currentId = randomTrack ? randomTrack.id : "off";
-    if (this.currentId !== "off") {
-      const track = MUSIC_TRACKS.find(t => t.id === this.currentId);
-      if (track?.file) {
-        fetch(track.file).then(r => r.blob()).then(blob => {
-  const blobUrl = URL.createObjectURL(blob);
-  this.audio = new Audio(blobUrl);
-  this.audio.loop = true;
-  this.audio.volume = this.volume;
-  this.audio.play().catch(() => {
-    const resume = () => { this.audio?.play(); };
-    document.addEventListener("pointerdown", resume, { once: true });
-    document.addEventListener("keydown", resume, { once: true });
-  });
-}).catch(() => {});
-        
-        
-      }
+  const playableTracks = MUSIC_TRACKS.filter(t => t.file);
+  const randomTrack = playableTracks[Math.floor(Math.random() * playableTracks.length)];
+  this.currentId = randomTrack ? randomTrack.id : "off";
+  if (this.currentId !== "off") {
+    const track = MUSIC_TRACKS.find(t => t.id === this.currentId);
+    if (track?.file) {
+      this.audio = new Audio(track.file);
+      this.audio.loop = true;
+      this.audio.volume = this.volume;
+      this.audio.play().catch(() => {
+        const resume = () => { this.audio?.play(); };
+        document.addEventListener("pointerdown", resume, { once: true });
+        document.addEventListener("keydown", resume, { once: true });
+      });
     }
   }
+}
 };
 
 document.addEventListener("pointerdown", () => { if (AC.state === "suspended") AC.resume(); }, { once: true });
@@ -1007,7 +990,12 @@ async function showDetail(id, slug) {
     document.querySelector(".detail-website-btn")?.addEventListener("click", () => { if (game.website) window.open(game.website,"_blank"); });
     document.querySelector(".detail-media-btn")?.addEventListener("click", () => openShowcase(game));
     renderDetailContent(game);
+    fetchAllLinks().then(all => {   // ← thêm
+      const gameMusic = all[`game_music_${game.id}`];
+      if (gameMusic) playGameMusic(gameMusic);
+    });
     history.pushState(null, "", `#/game/${game.slug || game.id}`);
+
   } catch (err) {
     $("detail-right").innerHTML = `<div class="detail-loading-text" style="color:#c01020"><i class="ph-fill ph-warning"></i> ${t("gameError")}</div>`;
   }
@@ -1354,6 +1342,11 @@ function navigateDetail(dir) {
     $("detail-right").classList.add("no-default-anim");
     renderDetailContent(game);
     history.pushState(null, "", `#/game/${game.slug || game.id}`);
+    fetchAllLinks().then(all => {
+  stopGameMusic();
+  const gameMusic = all[`game_music_${game.id}`];
+  if (gameMusic) playGameMusic(gameMusic);
+});
     const mainTile = $("detail-left").querySelector(".detail-tile-main");
     if (mainTile) {
       mainTile.classList.add("blow-in");
@@ -1724,11 +1717,27 @@ async function renderDownloadLinks(game) {
           ${isAdminView ? `<button class="dl-drag-handle" title="Kéo để sắp xếp"><i class="ph-fill ph-dots-six-vertical"></i></button>` : ""}
           <div class="dl-link-name">${l.name}</div>
           <div class="dl-link-urls">
-            ${(l.urls || [{ label: t("viewPhotos"), url: l.url }]).map(u => `
-              <a href="${u.url}" target="_blank" rel="noopener" class="dl-link-btn">
-                ${getLinkIcon(u.label || "")} ${u.label || t("viewPhotos")}
-              </a>`).join("")}
-          </div>
+  ${(l.urls || []).map(u => {
+    const parts = u.parts || (u.url ? [{label: u.label, url: u.url}] : []);
+    if (parts.length <= 1) {
+      return `<a href="${parts[0]?.url||'#'}" target="_blank" rel="noopener" class="dl-link-btn">
+        ${getLinkIcon(u.label||"")} ${u.label||"Tải"}
+      </a>`;
+    }
+    return `<div class="dl-expand-wrap">
+      <button class="dl-expand-btn" onclick="this.closest('.dl-expand-wrap').classList.toggle('open')">
+        ${getLinkIcon(u.label||"")} ${u.label}
+        <i class="ph-fill ph-caret-down"></i>
+      </button>
+      <div class="dl-expand-list">
+        ${parts.map(p => `
+          <a href="${p.url}" target="_blank" rel="noopener" class="dl-expand-item">
+            ${getLinkIcon(p.label||"")} ${p.label||"Part"}
+          </a>`).join("")}
+      </div>
+    </div>`;
+  }).join("")}
+</div>
           ${isAdminView ? `
             <div class="dl-admin-btns">
               <button class="dl-edit-btn" data-idx="${i}"><i class="ph-fill ph-pencil-simple"></i></button>
@@ -1840,18 +1849,35 @@ async function refreshDlSection(game) {
 
 function openLinkModal(game, existing, idx) {
   playSound("open");
-  const entries = existing ? (existing.urls || [{ label: "", url: existing.url }]) : [{ label: "", url: "" }];
+  const entries = existing
+  ? (existing.urls || []).map(u => ({
+      label: u.label || "",
+      parts: u.parts || (u.url ? [{ label: "", url: u.url }] : [{ label: "", url: "" }])
+    }))
+  : [{ label: "", parts: [{ label: "", url: "" }] }];
   const modal = document.createElement("div");
   modal.className = "login-overlay";
   modal.id = "dl-modal";
   const rowsHtml = entries.map((e, i) => `
-    <div class="dl-url-row" style="display:flex;gap:6px;align-items:center;">
-      <input type="text" class="dl-url-label" placeholder="${t("nameLabel")} (GG Drive...)" value="${e.label||""}" style="width:130px;flex-shrink:0" />
-      <input type="text" class="dl-url-input" placeholder="https://..." value="${e.url||""}" style="flex:1" />
-      ${i > 0 ? `<button class="dl-del-btn dl-url-del" style="flex-shrink:0"><i class="ph-fill ph-minus-circle"></i></button>` : ""}
-    </div>`).join("");
+  <div class="dl-url-row" style="background:#f8f8fc;border-radius:12px;padding:10px;margin-bottom:6px;">
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+      <input type="text" class="dl-url-label" placeholder="Tên host (GG Drive, Mega...)" value="${e.label||""}" style="width:130px;flex-shrink:0" />
+      ${i > 0 ? `<button class="dl-del-btn dl-url-del" style="flex-shrink:0;margin-left:auto"><i class="ph-fill ph-minus-circle"></i></button>` : ""}
+    </div>
+    <div class="dl-parts-wrap" style="display:flex;flex-direction:column;gap:6px;">
+      ${(e.parts || (e.url ? [{label:"", url: e.url}] : [{label:"", url:""}])).map((p, pi) => `
+        <div class="dl-part-row" style="display:flex;gap:6px;align-items:center;">
+          <input type="text" class="dl-part-label" placeholder="Part 1, Part 2..." value="${p.label||""}" style="width:90px;flex-shrink:0" />
+          <input type="text" class="dl-part-url" placeholder="https://..." value="${p.url||""}" style="flex:1" />
+          ${pi > 0 ? `<button class="dl-del-btn dl-part-del" style="flex-shrink:0"><i class="ph-fill ph-minus"></i></button>` : ""}
+        </div>`).join("")}
+    </div>
+    <button class="dl-add-part-btn" style="margin-top:6px;background:transparent;border:none;font-family:var(--font);font-size:0.75rem;font-weight:800;color:var(--purple);cursor:pointer;padding:2px 0;">
+      <i class="ph-fill ph-plus-circle"></i> Thêm part
+    </button>
+  </div>`).join("");
   modal.innerHTML = `
-    <div class="login-box" style="width:460px">
+    <div class="login-box" style="width:520px;max-height:85vh;overflow-y:auto;">
       <div class="login-title">
         <i class="ph-fill ph-download-simple" style="color:var(--blue)"></i>
         ${existing ? t("editLink") : t("addLinkTitle")}
@@ -1862,7 +1888,7 @@ function openLinkModal(game, existing, idx) {
       </div>
       <div class="login-field">
         <label>${t("linkLabel")}</label>
-        <div id="dl-urls-wrap" style="display:flex;flex-direction:column;gap:8px;">${rowsHtml}</div>
+        <div id="dl-urls-wrap" style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding-right:4px;">${rowsHtml}</div>
         <button id="dl-add-url" style="margin-top:8px;background:transparent;border:none;font-family:var(--font);font-size:0.82rem;font-weight:800;color:var(--blue);cursor:pointer;padding:4px 0;">
           <i class="ph-fill ph-plus-circle"></i> ${t("addUrlBtn")}
         </button>
@@ -1874,29 +1900,64 @@ function openLinkModal(game, existing, idx) {
   setTimeout(() => $("dl-name").focus(), 100);
 
   function addRow() {
-    const wrap = $("dl-urls-wrap");
-    const row = document.createElement("div");
-    row.className = "dl-url-row";
-    row.style.cssText = "display:flex;gap:6px;align-items:center;";
-    row.innerHTML = `
-      <input type="text" class="dl-url-label" placeholder="${t("nameLabel")} (GG Drive...)" style="width:130px;flex-shrink:0" />
-      <input type="text" class="dl-url-input" placeholder="https://..." style="flex:1" />
-      <button class="dl-del-btn dl-url-del" style="flex-shrink:0"><i class="ph-fill ph-minus-circle"></i></button>`;
-    row.querySelector(".dl-url-del").addEventListener("click", () => row.remove());
-    wrap.appendChild(row);
-    row.querySelector(".dl-url-label").focus();
-  }
+  const wrap = $("dl-urls-wrap");
+  const row = document.createElement("div");
+  row.className = "dl-url-row";
+  row.style.cssText = "background:#f8f8fc;border-radius:12px;padding:10px;margin-bottom:6px;";
+  row.innerHTML = `
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+      <input type="text" class="dl-url-label" placeholder="Tên host (GG Drive, Mega...)" style="width:130px;flex-shrink:0" />
+      <button class="dl-del-btn dl-url-del" style="flex-shrink:0;margin-left:auto"><i class="ph-fill ph-minus-circle"></i></button>
+    </div>
+    <div class="dl-parts-wrap" style="display:flex;flex-direction:column;gap:6px;">
+      <div class="dl-part-row" style="display:flex;gap:6px;align-items:center;">
+        <input type="text" class="dl-part-label" placeholder="Part 1..." style="width:90px;flex-shrink:0" />
+        <input type="text" class="dl-part-url" placeholder="https://..." style="flex:1" />
+      </div>
+    </div>
+    <button class="dl-add-part-btn" style="margin-top:6px;background:transparent;border:none;font-family:var(--font);font-size:0.75rem;font-weight:800;color:var(--purple);cursor:pointer;padding:2px 0;">
+      <i class="ph-fill ph-plus-circle"></i> Thêm part
+    </button>`;
+  wrap.appendChild(row);
+  bindPartEvents(wrap);
+  row.querySelector(".dl-part-url").focus();
+}
 
   $("dl-add-url").addEventListener("click", addRow);
+  function bindPartEvents(wrap) {
+  wrap.querySelectorAll(".dl-add-part-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const partsWrap = btn.previousElementSibling;
+      const row = document.createElement("div");
+      row.className = "dl-part-row";
+      row.style.cssText = "display:flex;gap:6px;align-items:center;";
+      row.innerHTML = `
+        <input type="text" class="dl-part-label" placeholder="Part 1, Part 2..." style="width:90px;flex-shrink:0" />
+        <input type="text" class="dl-part-url" placeholder="https://..." style="flex:1" />
+        <button class="dl-del-btn dl-part-del" style="flex-shrink:0"><i class="ph-fill ph-minus"></i></button>`;
+      row.querySelector(".dl-part-del").addEventListener("click", () => row.remove());
+      partsWrap.appendChild(row);
+    });
+  });
+  wrap.querySelectorAll(".dl-part-del").forEach(btn => btn.addEventListener("click", () => btn.closest(".dl-part-row").remove()));
+  wrap.querySelectorAll(".dl-url-del").forEach(btn => btn.addEventListener("click", () => btn.closest(".dl-url-row").remove()));
+}
+
+const wrap = $("dl-urls-wrap");
+bindPartEvents(wrap);
   modal.querySelectorAll(".dl-url-del").forEach(btn => btn.addEventListener("click", () => btn.closest(".dl-url-row").remove()));
   $("dl-cancel").addEventListener("click", () => modal.remove());
   modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
   $("dl-save").addEventListener("click", async () => {
     const name = $("dl-name").value.trim();
-    const urls = [...modal.querySelectorAll(".dl-url-row")].map(row => ({
-      label: row.querySelector(".dl-url-label").value.trim(),
-      url:   row.querySelector(".dl-url-input").value.trim(),
-    })).filter(e => e.url);
+    const urls = [...modal.querySelectorAll(".dl-url-row")].map(row => {
+  const label = row.querySelector(".dl-url-label").value.trim();
+  const parts = [...row.querySelectorAll(".dl-part-row")].map(pr => ({
+    label: pr.querySelector(".dl-part-label").value.trim(),
+    url:   pr.querySelector(".dl-part-url").value.trim(),
+  })).filter(p => p.url);
+  return { label, parts };
+}).filter(e => e.parts.length);
     if (!name || !urls.length) return;
     const links = await getLinks(game.id);
     const entry = { name, urls };
@@ -2610,7 +2671,7 @@ function playGameMusic(url) {
 
 function stopGameMusic() {
   const iframe = document.getElementById("game-music-iframe");
-  const hadGameMusic = iframe || musicPlayer._gameAudio;  // ← kiểm tra có nhạc game k
+  const hadGameMusic = iframe || musicPlayer._gameAudio;
 
   if (iframe) { iframe.src = ""; iframe.remove(); }
   if (musicPlayer._gameAudio) {
@@ -2618,18 +2679,17 @@ function stopGameMusic() {
     musicPlayer._gameAudio = null;
   }
 
-  // Chỉ restart nhạc nền nếu trước đó có nhạc game
-  if (hadGameMusic && musicPlayer.currentId !== "off") {
+  // Resume nhạc nền — KHÔNG gọi play() để tránh IDM bắt fetch
+  if (musicPlayer.audio) {
+    if (musicPlayer._savedTime) {
+      musicPlayer.audio.currentTime = musicPlayer._savedTime;
+      musicPlayer._savedTime = 0;
+    }
+    musicPlayer.audio.play().catch(() => {});
+  } else if (hadGameMusic && musicPlayer.currentId !== "off") {
+    // Chỉ fetch lại nếu audio bị null hoàn toàn
     musicPlayer.play(musicPlayer.currentId);
-    // Sau khi play, seek về đúng chỗ đã dừng
-    setTimeout(() => {
-      if (musicPlayer.audio && musicPlayer._savedTime) {
-        musicPlayer.audio.currentTime = musicPlayer._savedTime;
-        musicPlayer._savedTime = 0;
-      }
-    }, 300);
   }
-  // Nếu không có nhạc game → không làm gì → nhạc nền tiếp tục bình thường
 }
 
 
