@@ -1759,3 +1759,299 @@ body {
 }
 .dl-add-part-btn:hover { background: rgba(144,96,216,0.08); border-color: var(--purple); }
 
+
+/* ═══════════════════════════════════════════════
+   NSwitch Vault — UX Patch
+   Fixes: slogan, hierarchy, hover, toast,
+          breadcrumb, back-to-top, buttons, badges
+═══════════════════════════════════════════════ */
+
+/* ══ FIX 1: Slogan trong HUD title ══ */
+.hud-title-pill {
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.1;
+  padding: 8px 28px;
+}
+.hud-title-main {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 1rem; font-weight: 800; color: var(--red);
+  justify-content: center;
+}
+.hud-title-slogan {
+  font-size: 0.58rem; font-weight: 600;
+  color: var(--tx-light); letter-spacing: 0.12em;
+  text-transform: uppercase; text-align: center;
+}
+
+/* ══ FIX 2: Brand watermark khi ở detail view ══ */
+.detail-brand-mark {
+  position: fixed; top: 72px; left: 50%; transform: translateX(-50%);
+  font-size: 0.6rem; font-weight: 800; color: rgba(228,0,27,0.22);
+  letter-spacing: 0.2em; text-transform: uppercase;
+  pointer-events: none; z-index: 4;
+  display: none;
+}
+#view-detail.active ~ * .detail-brand-mark,
+.brand-mark-visible { display: block !important; }
+
+/* ══ FIX 3+4: Typography hierarchy ══ */
+.detail-game-name {
+  font-size: clamp(1.8rem, 3.5vw, 2.6rem) !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em;
+  line-height: 1.05 !important;
+}
+.stat-label {
+  font-size: 0.62rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.14em !important;
+  opacity: 0.65;
+}
+.stat-value {
+  font-size: 1.1rem !important;
+  font-weight: 900 !important;
+}
+.detail-description {
+  font-size: 0.88rem !important;
+  line-height: 1.9 !important;
+  color: var(--tx-mid) !important;
+}
+.section-label {
+  font-size: 0.68rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.18em !important;
+}
+.tile-name {
+  font-size: 0.82rem !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.01em;
+}
+.tile-rating {
+  font-size: 0.72rem !important;
+  font-weight: 900 !important;
+}
+
+/* ══ FIX 5: Badge nổi bật / mới / hot ══ */
+.tile-badge {
+  position: absolute; top: 9px; left: 9px;
+  border-radius: 8px; padding: 3px 8px;
+  font-size: 0.65rem; font-weight: 900; z-index: 6;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  display: flex; align-items: center; gap: 3px;
+  backdrop-filter: blur(4px);
+  animation: badge-pop 0.4s var(--ease-bounce) both;
+}
+@keyframes badge-pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+.tile-badge.badge-new  { background: rgba(82,184,64,0.92); color: #fff; }
+.tile-badge.badge-hot  { background: rgba(228,0,27,0.92);  color: #fff; }
+.tile-badge.badge-top  { background: rgba(240,165,0,0.92); color: #fff; }
+
+/* Khi có badge-new thì ẩn mc ở góc trái */
+.game-tile:has(.tile-badge) .tile-mc { left: auto; right: 9px; top: 34px; }
+
+/* ══ FIX 6: Card hover mạnh hơn ══ */
+.game-tile {
+  transition:
+    transform 0.28s cubic-bezier(0.34,1.4,0.64,1),
+    box-shadow 0.28s ease,
+    filter 0.2s ease !important;
+}
+.game-tile:hover {
+  transform: scale(1.08) translateY(-8px) !important;
+  box-shadow:
+    0 28px 56px rgba(0,0,0,0.28),
+    0 0 0 3px rgba(58,180,216,0.5) !important;
+  filter: brightness(1.05);
+  z-index: 20 !important;
+}
+.game-tile:hover .tile-img {
+  transform: scale(1.1) !important;
+  filter: saturate(1.15);
+}
+/* Selected state */
+.game-tile.selected {
+  box-shadow:
+    0 16px 40px rgba(0,0,0,0.2),
+    0 0 0 3px var(--blue) !important;
+}
+
+/* ══ FIX 7: Toast notifications ══ */
+#toast-container {
+  position: fixed; bottom: 80px; right: 24px;
+  z-index: 9999; display: flex; flex-direction: column-reverse; gap: 10px;
+  pointer-events: none;
+}
+.toast {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(30,30,40,0.92); backdrop-filter: blur(12px);
+  border-radius: 14px; padding: 12px 18px;
+  font-size: 0.85rem; font-weight: 700; color: #fff;
+  min-width: 220px; max-width: 340px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+  animation: toast-in 0.35s var(--ease-bounce) both;
+  pointer-events: auto;
+  border-left: 4px solid transparent;
+}
+.toast.toast-success { border-color: var(--green); }
+.toast.toast-error   { border-color: var(--red);   }
+.toast.toast-info    { border-color: var(--blue);   }
+.toast.toast-out     { animation: toast-out 0.25s ease forwards; }
+.toast-icon { font-size: 1.05rem; flex-shrink: 0; }
+.toast-text { flex: 1; line-height: 1.3; }
+.toast-progress {
+  position: absolute; bottom: 0; left: 0; height: 3px;
+  background: rgba(255,255,255,0.3); border-radius: 0 0 14px 14px;
+  animation: toast-bar linear forwards;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(40px) scale(0.92); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to   { opacity: 0; transform: translateX(40px) scale(0.9); }
+}
+@keyframes toast-bar {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+/* ══ FIX 8: Active filter badge trên search ══ */
+.filter-active-badges {
+  display: flex; gap: 6px; flex-wrap: nowrap; overflow: hidden;
+}
+.filter-badge-pill {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--blue); border-radius: 999px;
+  padding: 4px 10px 4px 12px;
+  font-size: 0.7rem; font-weight: 800; color: #fff;
+  flex-shrink: 0; animation: badge-pop 0.2s var(--ease-bounce) both;
+}
+.filter-badge-pill button {
+  background: rgba(255,255,255,0.3); border: none; border-radius: 50%;
+  width: 14px; height: 14px; display: flex; align-items: center;
+  justify-content: center; cursor: pointer; font-size: 0.55rem;
+  color: #fff; padding: 0; line-height: 1;
+  transition: background 0.15s;
+}
+.filter-badge-pill button:hover { background: rgba(255,255,255,0.55); }
+
+/* ══ FIX 9: Breadcrumb ══ */
+.detail-breadcrumb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.68rem; font-weight: 700; color: var(--tx-light);
+  margin-bottom: 8px; flex-wrap: wrap;
+}
+.bc-item {
+  cursor: pointer; transition: color 0.15s;
+  display: flex; align-items: center; gap: 4px;
+}
+.bc-item:hover { color: var(--blue); }
+.bc-item.active { color: var(--tx-mid); cursor: default; }
+.bc-sep { opacity: 0.4; font-size: 0.6rem; }
+
+/* ══ FIX 10: Primary buttons nổi bật hơn ══ */
+/* Các secondary buttons quan trọng cần màu sắc */
+#btn-open-showcase {
+  background: linear-gradient(135deg, var(--purple), #6830c0) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 18px rgba(144,96,216,0.35) !important;
+}
+#btn-open-showcase:hover {
+  transform: translateY(-2px) scale(1.03) !important;
+  box-shadow: 0 10px 28px rgba(144,96,216,0.5) !important;
+}
+#btn-fav {
+  background: linear-gradient(135deg, #ffecec, #ffe0e0) !important;
+  color: var(--red) !important;
+  border: 2px solid rgba(228,0,27,0.2) !important;
+}
+#btn-fav:hover {
+  background: linear-gradient(135deg, var(--red), #c01020) !important;
+  color: #fff !important;
+}
+.dl-add-btn {
+  background: rgba(58,180,216,0.08) !important;
+  border: 2px dashed var(--blue) !important;
+  color: var(--blue) !important;
+  font-weight: 800 !important;
+}
+.dl-add-btn:hover {
+  background: var(--blue) !important;
+  color: #fff !important;
+  border-style: solid !important;
+}
+/* Overlay close button */
+.overlay-close {
+  background: linear-gradient(135deg, var(--blue), var(--blue2)) !important;
+  font-size: 1rem !important;
+}
+
+/* Nút action trong bottom HUD — nổi bật */
+.hud-btn kbd {
+  background: var(--blue) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 6px rgba(58,180,216,0.4) !important;
+}
+.hud-btns-right .hud-btn:first-child kbd {
+  background: linear-gradient(135deg, #e4001b, #b0001a) !important;
+  box-shadow: 0 2px 6px rgba(228,0,27,0.4) !important;
+}
+
+/* ══ FIX 11: Back to top ══ */
+#back-to-top {
+  position: fixed; bottom: 82px; right: 24px; z-index: 200;
+  width: 44px; height: 44px; border-radius: 50%; border: none;
+  background: linear-gradient(135deg, var(--blue), var(--blue2));
+  color: #fff; font-size: 1.15rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; box-shadow: 0 6px 20px rgba(58,180,216,0.45);
+  opacity: 0; transform: translateY(20px) scale(0.8);
+  transition: all 0.3s var(--ease-bounce);
+  pointer-events: none;
+}
+#back-to-top.visible {
+  opacity: 1; transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+#back-to-top:hover {
+  transform: translateY(-3px) scale(1.12) !important;
+  box-shadow: 0 10px 28px rgba(58,180,216,0.55);
+}
+#back-to-top:active { transform: scale(0.95) !important; }
+
+/* ══ EXTRA: Loading skeleton đẹp hơn ══ */
+.tile-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(0,0,0,0.04) 0%,
+    rgba(0,0,0,0.08) 40%,
+    rgba(0,0,0,0.04) 80%
+  ) !important;
+  background-size: 300% 100% !important;
+  animation: shimmer 1.6s ease-in-out infinite !important;
+  border-radius: 18px;
+}
+@keyframes shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* ══ EXTRA: Success state cho tile đã xem ══ */
+.game-tile.seen::after {
+  content: '';
+  position: absolute; inset: 0; border-radius: 18px;
+  background: rgba(0,0,0,0.12); pointer-events: none; z-index: 2;
+}
+
+/* ══ MOBILE ══ */
+@media (max-width: 600px) {
+  #back-to-top { bottom: 72px; right: 14px; width: 38px; height: 38px; font-size: 1rem; }
+  #toast-container { right: 12px; bottom: 72px; max-width: calc(100vw - 24px); }
+  .toast { min-width: 0; width: 100%; }
+  .hud-title-slogan { display: none; }
+}

@@ -2698,5 +2698,595 @@ function stopGameMusic() {
 }
 
 
+/* ═══════════════════════════════════════════════
+   NSwitch Vault — UX Patch JS
+   Gắn vào sau app.js
+═══════════════════════════════════════════════ */
+(function() {
+"use strict";
+
+/* ════════════════════════════════════════
+   FIX 1+2: Slogan & Brand watermark
+════════════════════════════════════════ */
+function patchHudTitle() {
+  const pill = document.getElementById("hud-title");
+  if (!pill) return;
+
+  const sloganText = currentLang === "vi"
+    ? "Kho tàng game Nintendo Switch"
+    : "Your Nintendo Switch Game Library";
+
+  // Chỉ patch khi đang ở home (hiển thị "NSwitch Vault")
+  const observer = new MutationObserver(() => {
+    const text = pill.textContent.trim();
+    if ((text.includes("Vault") || text.includes("NSwitch")) && !pill.querySelector(".hud-title-main")) {
+      const inner = pill.innerHTML;
+      pill.innerHTML = `
+        <div class="hud-title-main">${inner}</div>
+        <div class="hud-title-slogan">${sloganText}</div>`;
+    } else if (!text.includes("Vault") && !text.includes("Vault")) {
+      // Đang ở detail — không patch
+    }
+  });
+  observer.observe(pill, { childList: true, subtree: true, characterData: true });
+
+  // Patch ngay lập tức
+  setTimeout(() => {
+    const text = pill.textContent.trim();
+    if ((text.includes("Vault") || text.includes("Switch")) && !pill.querySelector(".hud-title-main")) {
+      const inner = pill.innerHTML;
+      pill.innerHTML = `
+        <div class="hud-title-main">${inner}</div>
+        <div class="hud-title-slogan">${sloganText}</div>`;
+    }
+  }, 1200);
+}
+
+// Brand watermark khi ở detail view
+function injectBrandMark() {
+  let mark = document.getElementById("brand-mark");
+  if (!mark) {
+    mark = document.createElement("div");
+    mark.id = "brand-mark";
+    mark.className = "detail-brand-mark";
+    mark.textContent = "⚡ NSwitch Vault";
+    document.getElementById("console-ui")?.appendChild(mark);
+  }
+  const detailView = document.getElementById("view-detail");
+  const homeView   = document.getElementById("view-home");
+  const detailActive = !detailView?.classList.contains("hidden");
+  mark.style.display = detailActive ? "block" : "none";
+}
+
+// Hook vào showHome & showDetailWithGame
+const _origShowHome = window.showHome;
+if (_origShowHome) {
+  window.showHome = function(...args) {
+    _origShowHome.apply(this, args);
+    setTimeout(injectBrandMark, 50);
+    setTimeout(patchHudTitle, 100);
+  };
+}
+
+/* ════════════════════════════════════════
+   FIX 7: Toast notification system
+════════════════════════════════════════ */
+let toastContainer = document.getElementById("toast-container");
+if (!toastContainer) {
+  toastContainer = document.createElement("div");
+  toastContainer.id = "toast-container";
+  document.body.appendChild(toastContainer);
+}
+
+window.showToast = function(message, type = "info", duration = 3000) {
+  const icons = {
+    success: "ph-check-circle",
+    error:   "ph-x-circle",
+    info:    "ph-info",
+    warning: "ph-warning",
+  };
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <i class="ph-fill ${icons[type] || icons.info} toast-icon"></i>
+    <span class="toast-text">${message}</span>
+    <div class="toast-progress" style="animation-duration:${duration}ms"></div>`;
+  toastContainer.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add("toast-out");
+    toast.addEventListener("animationend", () => toast.remove(), { once: true });
+  }, duration);
+
+  toast.addEventListener("click", () => {
+    toast.classList.add("toast-out");
+    toast.addEventListener("animationend", () => toast.remove(), { once: true });
+  });
+};
+
+// Gắn toast vào các action hiện có
+function hookToasts() {
+  // Hook saveLinks
+  const _origSaveLinks = window.saveLinks;
+  if (_origSaveLinks) {
+    window.saveLinks = async function(...args) {
+      try {
+        await _origSaveLinks.apply(this, args);
+        showToast(currentLang === "vi" ? "✅ Đã lưu link tải!" : "✅ Link saved!", "success");
+      } catch(e) {
+        showToast(currentLang === "vi" ? "❌ Lỗi lưu dữ liệu" : "❌ Save failed", "error");
+        throw e;
+      }
+    };
+  }
+  // Hook saveTrailers
+  const _origSaveTrailers = window.saveTrailers;
+  if (_origSaveTrailers) {
+    window.saveTrailers = async function(...args) {
+      await _origSaveTrailers.apply(this, args);
+      showToast(currentLang === "vi" ? "🎬 Trailer đã được thêm!" : "🎬 Trailer added!", "success");
+    };
+  }
+  // Hook saveCustomGames
+  const _origSaveCG = window.saveCustomGames;
+  if (_origSaveCG) {
+    window.saveCustomGames = async function(...args) {
+      await _origSaveCG.apply(this, args);
+      showToast(currentLang === "vi" ? "🎮 Game đã được lưu!" : "🎮 Game saved!", "success");
+    };
+  }
+  // Hook toggleFavorite
+  const _origToggleFav = window.toggleFavorite;
+  if (_origToggleFav) {
+    window.toggleFavorite = function(...args) {
+      const added = _origToggleFav.apply(this, args);
+      showToast(
+        added
+          ? (currentLang === "vi" ? "❤️ Đã thêm vào yêu thích!" : "❤️ Added to favorites!")
+          : (currentLang === "vi" ? "💔 Đã bỏ yêu thích" : "💔 Removed from favorites"),
+        added ? "success" : "info"
+      );
+      return added;
+    };
+  }
+  // Hook toggleViethoa
+  const _origToggleVH = window.toggleViethoa;
+  if (_origToggleVH) {
+    window.toggleViethoa = async function(...args) {
+      const added = await _origToggleVH.apply(this, args);
+      showToast(
+        added
+          ? "🇻🇳 Đã đánh dấu có Việt hóa!"
+          : "🇻🇳 Đã bỏ đánh dấu Việt hóa",
+        added ? "success" : "info"
+      );
+      return added;
+    };
+  }
+}
+
+/* ════════════════════════════════════════
+   FIX 8: Active filter badges trên search
+════════════════════════════════════════ */
+function renderFilterBadges() {
+  // Xóa badges cũ
+  document.querySelectorAll(".filter-active-badges").forEach(el => el.remove());
+
+  const searchHud = document.querySelector(".search-hud-inner");
+  if (!searchHud) return;
+
+  const badges = [];
+  if (typeof S !== "undefined") {
+    if (S.genre) {
+      const gLabel = (typeof ALL_GENRES !== "undefined" ? ALL_GENRES : [])
+        .find(g => g.slug === S.genre)?.label || S.genre;
+      badges.push({ label: gLabel, clear: () => { S.genre = ""; fetchGames(); renderFilterBadges(); } });
+    }
+    if (S.tag) {
+      const tLabel = (typeof ALL_TAGS !== "undefined" ? ALL_TAGS : [])
+        .find(t => t.slug === S.tag)?.label || S.tag;
+      badges.push({ label: tLabel, clear: () => { S.tag = ""; fetchGames(); renderFilterBadges(); } });
+    }
+    if (S.order && S.order !== "-rating") {
+      const sortOpts = typeof getSortOpts === "function" ? getSortOpts() : [];
+      const sLabel = sortOpts.find(o => o.val === S.order)?.label || S.order;
+      badges.push({ label: `↕ ${sLabel}`, clear: () => { S.order = "-rating"; fetchGames(); renderFilterBadges(); } });
+    }
+    if (S.filterViethoa) {
+      badges.push({ label: "🇻🇳 Việt hóa", clear: () => { S.filterViethoa = false; fetchGames(); renderFilterBadges(); } });
+    }
+  }
+
+  if (!badges.length) return;
+
+  const wrap = document.createElement("div");
+  wrap.className = "filter-active-badges";
+  badges.forEach(b => {
+    const pill = document.createElement("span");
+    pill.className = "filter-badge-pill";
+    pill.innerHTML = `${b.label}<button title="Xóa">×</button>`;
+    pill.querySelector("button").addEventListener("click", e => {
+      e.stopPropagation();
+      b.clear();
+    });
+    wrap.appendChild(pill);
+  });
+  searchHud.appendChild(wrap);
+}
+
+// Patch overlay close để render badges
+const _overlayClose = document.getElementById("overlay-close");
+if (_overlayClose) {
+  _overlayClose.addEventListener("click", () => {
+    setTimeout(renderFilterBadges, 100);
+  });
+}
+
+// Re-render sau fetchGames
+const _origFetchGames = window.fetchGames;
+if (_origFetchGames) {
+  window.fetchGames = async function(...args) {
+    await _origFetchGames.apply(this, args);
+    setTimeout(renderFilterBadges, 200);
+  };
+}
+
+/* ════════════════════════════════════════
+   FIX 9: Breadcrumb trong detail view
+════════════════════════════════════════ */
+function injectBreadcrumb(game) {
+  // Xóa breadcrumb cũ
+  document.querySelector(".detail-breadcrumb")?.remove();
+  const right = document.getElementById("detail-right");
+  if (!right) return;
+
+  const bc = document.createElement("div");
+  bc.className = "detail-breadcrumb";
+
+  const platform = (typeof PLATFORMS !== "undefined" ? PLATFORMS : [])
+    .find(p => p.id === (typeof currentPlatform !== "undefined" ? currentPlatform : "switch"));
+  const platformName = platform?.name || "Switch";
+
+  const activeGenre = typeof S !== "undefined" && S.genre
+    ? ((typeof ALL_GENRES !== "undefined" ? ALL_GENRES : []).find(g => g.slug === S.genre)?.label || S.genre)
+    : null;
+
+  bc.innerHTML = `
+    <span class="bc-item" id="bc-home">
+      <i class="ph-fill ph-house" style="font-size:0.7rem"></i>
+      ${platformName} Vault
+    </span>
+    <span class="bc-sep">›</span>
+    ${activeGenre ? `
+      <span class="bc-item" id="bc-genre">${activeGenre}</span>
+      <span class="bc-sep">›</span>` : ""}
+    <span class="bc-item active">${game.name.slice(0, 28)}${game.name.length > 28 ? "…" : ""}</span>`;
+
+  right.insertBefore(bc, right.firstChild);
+
+  bc.querySelector("#bc-home")?.addEventListener("click", () => {
+    if (typeof goHome === "function") goHome();
+  });
+  bc.querySelector("#bc-genre")?.addEventListener("click", () => {
+    if (typeof goHome === "function") goHome();
+  });
+}
+
+// Hook renderDetailContent để tự inject breadcrumb
+const _origRDC = window.renderDetailContent;
+if (_origRDC) {
+  window.renderDetailContent = async function(game, ...args) {
+    await _origRDC.apply(this, [game, ...args]);
+    setTimeout(() => injectBreadcrumb(game), 50);
+    setTimeout(injectBrandMark, 100);
+  };
+}
+
+/* ════════════════════════════════════════
+   FIX 5: Badge Mới / Hot / Top trên tile
+════════════════════════════════════════ */
+function addTileBadge(tile, game) {
+  // Xóa badge cũ nếu có
+  tile.querySelector(".tile-badge")?.remove();
+
+  const now = new Date();
+  const released = game.released ? new Date(game.released) : null;
+  const daysSince = released ? (now - released) / (1000 * 60 * 60 * 24) : Infinity;
+
+  let badge = null;
+  if (daysSince < 60) {
+    badge = { cls: "badge-new", text: currentLang === "vi" ? "✨ Mới" : "✨ New" };
+  } else if (game.rating >= 4.5 && game.ratings_count > 1000) {
+    badge = { cls: "badge-top", text: "⭐ Top" };
+  } else if (game.metacritic && game.metacritic >= 85) {
+    badge = { cls: "badge-hot", text: "🔥 Hot" };
+  }
+
+  if (badge) {
+    const el = document.createElement("div");
+    el.className = `tile-badge ${badge.cls}`;
+    el.textContent = badge.text;
+    tile.appendChild(el);
+  }
+}
+
+// Patch renderShelf để thêm badges sau khi tiles được tạo
+const _origRenderShelf = window.renderShelf;
+if (_origRenderShelf) {
+  window.renderShelf = function(...args) {
+    _origRenderShelf.apply(this, args);
+    setTimeout(() => {
+      const tiles = document.querySelectorAll(".game-tile");
+      if (typeof S !== "undefined" && S.games) {
+        S.games.forEach((g, i) => {
+          if (tiles[i]) addTileBadge(tiles[i], g);
+        });
+      }
+    }, 100);
+  };
+}
+
+/* ════════════════════════════════════════
+   FIX 11: Back to top button
+════════════════════════════════════════ */
+function initBackToTop() {
+  let btn = document.getElementById("back-to-top");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "back-to-top";
+    btn.title = "Lên đầu trang";
+    btn.innerHTML = `<i class="ph-bold ph-arrow-up"></i>`;
+    document.body.appendChild(btn);
+  }
+
+  btn.addEventListener("click", () => {
+    const shelf = document.getElementById("game-shelf");
+    if (shelf) shelf.scrollTo({ top: 0, behavior: "smooth" });
+    if (typeof playSound === "function") playSound("tick");
+  });
+
+  // Show/hide dựa trên scroll của game shelf
+  const shelf = document.getElementById("game-shelf");
+  if (shelf) {
+    shelf.addEventListener("scroll", () => {
+      // Chỉ hiện ở home view
+      const homeActive = !document.getElementById("view-home")?.classList.contains("hidden");
+      if (shelf.scrollTop > 300 && homeActive) {
+        btn.classList.add("visible");
+      } else {
+        btn.classList.remove("visible");
+      }
+    });
+  }
+}
+
+/* ════════════════════════════════════════
+   FIX 2 (tiếp): Tên web nhỏ trong detail
+════════════════════════════════════════ */
+// Thêm HUD sub-title khi vào detail
+const _origShowDetailWithGame = window.showDetailWithGame;
+if (_origShowDetailWithGame) {
+  window.showDetailWithGame = function(game, ...args) {
+    _origShowDetailWithGame.apply(this, [game, ...args]);
+    // Sau khi render xong, inject brand mark
+    setTimeout(injectBrandMark, 100);
+  };
+}
+
+/* ════════════════════════════════════════
+   INIT khi patch load xong
+════════════════════════════════════════ */
+document.addEventListener("DOMContentLoaded", () => {
+  initBackToTop();
+  hookToasts();
+  patchHudTitle();
+  injectBrandMark();
+
+  // Re-check khi hash thay đổi
+  window.addEventListener("hashchange", () => {
+    setTimeout(injectBrandMark, 100);
+    setTimeout(renderFilterBadges, 200);
+  });
+});
+
+// Fallback nếu DOMContentLoaded đã fire
+if (document.readyState !== "loading") {
+  setTimeout(() => {
+    initBackToTop();
+    hookToasts();
+    patchHudTitle();
+    injectBrandMark();
+  }, 500);
+}
+
+/* ════════════════════════════════════════
+   BONUS: Confirm trước khi xóa game/link
+════════════════════════════════════════ */
+// Đã có confirm() trong app.js gốc, chỉ cần đảm bảo toast hoạt động
+
+/* ════════════════════════════════════════
+   BONUS: 404 toast khi fetchGameDetail fail
+════════════════════════════════════════ */
+const _origFetchDetail = window.fetchGameDetail;
+if (_origFetchDetail) {
+  window.fetchGameDetail = async function(...args) {
+    try {
+      return await _origFetchDetail.apply(this, args);
+    } catch (e) {
+      showToast(
+        currentLang === "vi"
+          ? "❌ Không tìm thấy game này (404)"
+          : "❌ Game not found (404)",
+        "error", 4000
+      );
+      throw e;
+    }
+  };
+}
+
+})();
+
+
+/* ═══════════════════════════════════════════════
+   NSwitch Vault — Anti-IDM Music Patch
+   Dùng blob: URL thay cho direct mp3 URL
+   → IDM không thể bắt link nhạc nền
+═══════════════════════════════════════════════ */
+(function() {
+"use strict";
+
+/* ══ Tạo Audio từ blob URL để IDM không bắt được ══ */
+async function createSafeAudio(url) {
+  try {
+    const res  = await fetch(url, { cache: "force-cache" });
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const audio = new Audio();
+    audio._blobUrl = blobUrl;            // lưu lại để revoke sau
+    audio.src = blobUrl;                 // gán blob: URL — IDM bỏ qua
+    return audio;
+  } catch {
+    // Fallback: tạo Audio thông thường nếu fetch lỗi (CORS, offline…)
+    const audio = new Audio();
+    audio.src = url;
+    return audio;
+  }
+}
+
+/* Revoke blob URL khi không còn dùng */
+function safeRevoke(audio) {
+  if (audio?._blobUrl) {
+    URL.revokeObjectURL(audio._blobUrl);
+    audio._blobUrl = null;
+  }
+}
+
+/* ══ Override musicPlayer.play ══ */
+const _origPlay = musicPlayer.play.bind(musicPlayer);
+musicPlayer.play = async function(trackId) {
+  const track = MUSIC_TRACKS.find(t => t.id === trackId);
+  if (!track) return;
+  this.currentId = trackId;
+  localStorage.setItem("sv_music", trackId);
+
+  if (this.audio) {
+    this.audio.pause();
+    safeRevoke(this.audio);
+    this.audio = null;
+  }
+  if (!track.file) return;
+
+  const audio = await createSafeAudio(track.file);
+  audio.loop   = true;
+  audio.volume = this.volume;
+  this.audio   = audio;
+  audio.play().catch(() => {});
+};
+
+/* ══ Override musicPlayer.init ══ */
+musicPlayer.init = async function() {
+  const playableTracks = MUSIC_TRACKS.filter(t => t.file);
+  const randomTrack    = playableTracks[Math.floor(Math.random() * playableTracks.length)];
+  this.currentId       = randomTrack ? randomTrack.id : "off";
+
+  if (this.currentId !== "off") {
+    const track = MUSIC_TRACKS.find(t => t.id === this.currentId);
+    if (!track?.file) return;
+
+    const audio  = await createSafeAudio(track.file);
+    audio.loop   = true;
+    audio.volume = this.volume;
+    this.audio   = audio;
+
+    audio.play().catch(() => {
+      const resume = () => { this.audio?.play().catch(() => {}); };
+      document.addEventListener("pointerdown", resume, { once: true });
+      document.addEventListener("keydown",     resume, { once: true });
+    });
+  }
+};
+
+/* ══ Override playGameMusic (nhạc riêng từng game) ══ */
+const _origPlayGameMusic = window.playGameMusic;
+window.playGameMusic = async function(url) {
+  if (!url) return;
+
+  // Lưu nhạc nền đang chạy
+  if (musicPlayer.audio) {
+    musicPlayer._savedTime  = musicPlayer.audio.currentTime;
+    musicPlayer._savedAudio = musicPlayer.audio;
+    musicPlayer.audio.pause();
+  }
+
+  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if (ytMatch) {
+    // YouTube → iframe ẩn (giữ nguyên, IDM không bắt iframe)
+    let iframe = document.getElementById("game-music-iframe");
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.id    = "game-music-iframe";
+      iframe.style.display = "none";
+      document.body.appendChild(iframe);
+    }
+    iframe.src = `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&loop=1&playlist=${ytMatch[1]}`;
+  } else {
+    // Direct mp3 → dùng blob URL
+    try {
+      const audio = await createSafeAudio(url);
+      audio.loop   = true;
+      audio.volume = musicPlayer.volume;
+      audio.play().catch(() => {});
+      musicPlayer._gameAudio = audio;
+    } catch {
+      // Fallback
+      const audio = new Audio();
+      audio.src    = url;
+      audio.loop   = true;
+      audio.volume = musicPlayer.volume;
+      audio.play().catch(() => {});
+      musicPlayer._gameAudio = audio;
+    }
+  }
+};
+
+/* ══ Override stopGameMusic để revoke blob URL ══ */
+const _origStopGameMusic = window.stopGameMusic;
+window.stopGameMusic = function() {
+  const iframe = document.getElementById("game-music-iframe");
+  if (iframe) { iframe.src = ""; iframe.remove(); }
+
+  if (musicPlayer._gameAudio) {
+    musicPlayer._gameAudio.pause();
+    safeRevoke(musicPlayer._gameAudio);
+    musicPlayer._gameAudio = null;
+  }
+
+  const audioToResume = musicPlayer._savedAudio || musicPlayer.audio;
+  if (audioToResume) {
+    musicPlayer.audio = audioToResume;
+    if (musicPlayer._savedTime) {
+      audioToResume.currentTime = musicPlayer._savedTime;
+      musicPlayer._savedTime = 0;
+    }
+    audioToResume.play().catch(() => {});
+    musicPlayer._savedAudio = null;
+  }
+};
+
+/* ══ Reinit với blob URL sau khi DOM sẵn sàng ══ */
+// musicPlayer.init() đã được gọi trước patch này, cần gọi lại
+// Nhưng tránh double-play: pause audio cũ trước
+if (musicPlayer.audio) {
+  musicPlayer.audio.pause();
+  safeRevoke(musicPlayer.audio);
+  musicPlayer.audio = null;
+}
+// Gọi lại init với logic mới (dùng blob URL)
+musicPlayer.init();
+
+console.log("[AntiIDM] Music patch applied — using blob: URLs");
+
+})();
+
 window.openShowcase = openShowcase;
 boot();
